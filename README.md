@@ -40,7 +40,9 @@ Then you can iterative query it with:
 fara-cli --task "whats the weather in new york now"
 ```
 
-Hint: might need to do `--tensor-parallel-size 2` with vllm command if you run out of memory
+Notes:
+- If you're using Windows, we highly recommend using WSL2 (Windows Subsystem for Linux).
+- You might need to do `--tensor-parallel-size 2` with vllm command if you run out of memory
 
 
 ### What Makes Fara-7B Unique
