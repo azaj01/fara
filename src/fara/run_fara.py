@@ -1,8 +1,8 @@
 import asyncio
 import argparse
 import os
-from fara import FaraAgent
-from fara.browser.browser_bb import BrowserBB
+from .fara_agent import FaraAgent
+from .browser.browser_bb import BrowserBB
 import logging
 from typing import Dict
 from pathlib import Path
@@ -11,8 +11,8 @@ import json
 
 # Configure logging to only show logs from fara.fara_agent
 logging.basicConfig(
-    level=logging.CRITICAL,  
-    format="%(message)s",  
+    level=logging.CRITICAL,
+    format="%(message)s",
 )
 
 # Enable INFO level only for fara.fara_agent
@@ -159,21 +159,51 @@ def main():
         default=None,
         help="Path to the endpoint configuration JSON file. By default, tries local vllm on 5000 port",
     )
+    parser.add_argument(
+        "--api_key",
+        type=str,
+        default=None,
+        help="API key for the model endpoint (overrides endpoint_config)",
+    )
+    parser.add_argument(
+        "--base_url",
+        type=str,
+        default=None,
+        help="Base URL for the model endpoint (overrides endpoint_config)",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Model name to use (overrides endpoint_config)",
+    )
 
     args = parser.parse_args()
 
     if args.browserbase:
-        assert os.environ.get("BROWSERBASE_API_KEY"), (
-            "BROWSERBASE_API_KEY environment variable must be set to use browserbase"
-        )
-        assert os.environ.get("BROWSERBASE_PROJECT_ID"), (
-            "BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID environment variables must be set to use browserbase"
-        )
+        assert os.environ.get(
+            "BROWSERBASE_API_KEY"
+        ), "BROWSERBASE_API_KEY environment variable must be set to use browserbase"
+        assert os.environ.get(
+            "BROWSERBASE_PROJECT_ID"
+        ), "BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID environment variables must be set to use browserbase"
 
     endpoint_config = DEFAULT_ENDPOINT_CONFIG
     if args.endpoint_config:
         with open(args.endpoint_config, "r") as f:
             endpoint_config = json.load(f)
+            assert (
+                "api_key" in endpoint_config
+                and "base_url" in endpoint_config
+                and "model" in endpoint_config
+            ), "endpoint_config file must contain api_key, base_url, and model fields"
+    # Override with command-line arguments if provided
+    if args.api_key:
+        endpoint_config["api_key"] = args.api_key
+    if args.base_url:
+        endpoint_config["base_url"] = args.base_url
+    if args.model:
+        endpoint_config["model"] = args.model
 
     asyncio.run(
         run_fara_agent(

@@ -17,7 +17,7 @@
 
 **Fara-7B** is Microsoft's first **agentic small language model (SLM)** designed specifically for computer use. With only 7 billion parameters, Fara-7B is an ultra-compact Computer Use Agent (CUA) that achieves state-of-the-art performance within its size class and is competitive with larger, more resource-intensive agentic systems.
 
-Try Fara-7B locally as follows (see [Installation](##Installation) for detailed instructions) or via Magentic-UI:
+Try Fara-7B locally as follows (see [Installation](#Installation) for detailed instructions on Windows ) or via Magentic-UI:
 
 ```bash
 # 1. Clone repository
@@ -44,7 +44,7 @@ To try Fara-7B inside Magentic-UI, please follow the instructions here [Magentic
 
 
 Notes:
-- If you're using Windows, we highly recommend using WSL2 (Windows Subsystem for Linux).
+- If you're using Windows, we highly recommend using WSL2 (Windows Subsystem for Linux). Please the Windows instructions in the [Installation](#Installation) section.
 - You might need to do `--tensor-parallel-size 2` with vllm command if you run out of memory
 
 <table>
@@ -156,27 +156,45 @@ Our evaluation setup leverages:
 
 ---
 
-## Installation
+# Installation
 
-Install the package using either UV or pip:
 
-```bash
-uv sync --all-extras
-```
+##  Linux 
 
-or
+The following instructions are for Linux systems, see the Windows section below for Windows instructions. 
 
-```bash
-pip install -e .
-```
-
-Then install Playwright browsers:
+Install the package using pip and set up the environment with Playwright:
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/microsoft/fara.git
+cd fara
+
+# 2. Setup environment
+python3 -m venv .venv 
+source .venv/bin/activate
+pip install -e .[vllm]
 playwright install
 ```
 
----
+Note: If you plan on hosting with Azure Foundry only, you can skip the `[vllm]` and just do `pip install -e .`
+
+
+## Windows
+
+For Windows, we highly recommend using WSL2 (Windows Subsystem for Linux) to provide a Linux-like environment. However, if you prefer to run natively on Windows, follow these steps:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/microsoft/fara.git
+cd fara
+
+# 2. Setup environment
+python3 -m venv .venv
+.venv\Scripts\activate
+pip install -e .
+python3 -m playwright install
+```
 
 ## Hosting the Model
 
@@ -189,11 +207,10 @@ Deploy Fara-7B on [Azure Foundry](https://ai.azure.com/explore/models/Fara-7B/ve
 **Setup:**
 
 1. Deploy the Fara-7B model on Azure Foundry and obtain your endpoint URL and API key
-2. Add your endpoint details to the existing `endpoint_configs/` directory (example configs are already provided):
 
-```bash
-# Edit one of the existing config files or create a new one
-# endpoint_configs/fara-7b-hosting-ansrz.json (example format):
+Then create a endpoint configuration JSON file (e.g., `azure_foundry_config.json`):
+
+```json
 {
     "model": "Fara-7B",
     "base_url": "https://your-endpoint.inference.ml.azure.com/",
@@ -201,61 +218,54 @@ Deploy Fara-7B on [Azure Foundry](https://ai.azure.com/explore/models/Fara-7B/ve
 }
 ```
 
-3. Run the Fara agent:
+Then you can run Fara-7B using this endpoint configuration.
+
+2. Run the Fara agent:
 
 ```bash
-fara-cli --task "how many pages does wikipedia have" --start_page "https://www.bing.com"
+fara-cli --task "how many pages does wikipedia have" --endpoint_config azure_foundry_config.json [--headful]
+```
+
+Note: you can also specify the endpoint config with the args `--base_url [your_base_url] --api_key [your_api_key] --model [your_model_name]` instead of using a config JSON file. 
+
+Note: If you see an error that the `fara-cli` command is not found, then try:
+
+```bash
+python -m fara.run_fara --task "what is the weather in new york now"
 ```
 
 That's it! No GPU or model downloads required.
 
-### Self-hosting with VLLM
+### Self-hosting with vLLM or LM Studio / Ollama
 
-If you have access to GPU resources, you can self-host Fara-7B using VLLM. This requires a GPU machine with sufficient VRAM.
+**If you have access to GPU resources, you can self-host Fara-7B using vLLM. This requires a GPU machine with sufficient VRAM (e.g., 24GB or more).**
 
-All that is required is to run the following command to start the VLLM server:
+Only on Linux: all that is required is to run the following command to start the VLLM server:
 
 ```bash
 vllm serve "microsoft/Fara-7B" --port 5000 --dtype auto 
 ```
+For quantized models or lower VRAM GPUs, please see [Fara-7B GGUF on HuggingFace](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF).
 
-### Testing the Fara Agent
+** For Windows/Mac, vLLM is not natively supported. You can use WSL2 on Windows to run the above command or LM Studio / Ollama as described below. **
+
+Otherwise, you can use [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/) to host the model locally. We currently recommend the following GGUF versions of our models [Fara-7B GGUF on HuggingFace](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF) for use with LM Studio or Ollama. Select the largest model that fits your GPU. Please ensure that context length is set to at least 15000 tokens and temperature to 0 for best results.
+
+Then you can run Fara-7B pointing to your local  server:
 
 Run the test script to see Fara in action:
 
 ```bash
-fara-cli --task "how many pages does wikipedia have" --start_page "https://www.bing.com" --endpoint_config endpoint_configs/azure_foundry_config.json [--headful] [--downloads_folder "/path/to/downloads"] [--save_screenshots] [--max_rounds 100] [--browserbase]
+fara-cli --task "what is the weather in new york now"
 ```
 
-In self-hosting scenario the `endpoint_config` points to `endpoint_configs/vllm_config.json` from the VLLM server above.
+If you didn't use vLLM to host, please specify the correct `--base_url [your_base_url] --api_key [your_api_key] --model [your_model_name]`
 
-If you set `--browserbase`, export environment variables for the API key and project ID.
+If you see an error that the `fara-cli` command is not found, then try:
 
-#### Expected Output
-
+```bash
+python -m fara.run_fara --task "what is the weather in new york now"
 ```
-Initializing Browser...
-Browser Running... Starting Fara Agent...
-##########################################
-Task: how many pages does wikipedia have
-##########################################
-Running Fara...
-
-
-Thought #1: To find the current number of Wikipedia pages, I'll search for the latest Wikipedia page count statistics.
-Action #1: executing tool 'web_search' with arguments {"action": "web_search", "query": "Wikipedia total number of articles"}
-Observation#1: I typed 'Wikipedia total number of articles' into the browser search bar.
-
-Thought #2: Wikipedia currently has 7,095,446 articles.
-Action #2: executing tool 'terminate' with arguments {"action": "terminate", "status": "success"}
-Observation#2: Wikipedia currently has 7,095,446 articles.
-
-Final Answer: Wikipedia currently has 7,095,446 articles.
-
-Enter another task (or press Enter to exit): 
-```
-
----
 
 # Reproducibility
 

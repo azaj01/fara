@@ -32,14 +32,20 @@ dependencies = [
     "pyyaml",
     "jsonschema",
     "browserbase",
-    "vllm>=0.10.0"
 ]
+
+
+
 
 [project.urls]
 Homepage = "https://github.com/microsoft/fara"
 Repository = "https://github.com/microsoft/fara"
 Issues = "https://github.com/microsoft/fara/issues"
 
+[project.optional-dependencies]
+vllm = ["vllm>=0.10.0"]
+lmstudio = ["lmstudio"]
+ollama = ["ollama"]
 
 [project.scripts]
 fara-cli = "fara.run_fara:main"

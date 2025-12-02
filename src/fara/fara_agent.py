@@ -15,7 +15,7 @@ from playwright.async_api import BrowserContext
 import asyncio
 from .browser.playwright_controller import PlaywrightController
 from ._prompts import get_computer_use_system_prompt
-from .types import (
+from .fara_types import (
     LLMMessage,
     SystemMessage,
     UserMessage,
@@ -379,15 +379,20 @@ class FaraAgent:
             thoughts, action_dict = self._parse_thoughts_and_action(raw_response)
             action_args = action_dict.get("arguments", {})
             action = action_args["action"]
-            self.logger.info(f"\nThought #{i+1}: {thoughts}\nAction #{i+1}: executing tool '{action}' with arguments {json.dumps(action_args)}")
-
+            self.logger.debug(
+                f"\nThought #{i+1}: {thoughts}\nAction #{i+1}: executing tool '{action}' with arguments {json.dumps(action_args)}"
+            )
+            print(
+                f"\nThought #{i+1}: {thoughts}\nAction #{i+1}: executing tool '{action}' with arguments {json.dumps(action_args)}"
+            )
             (
                 is_stop_action,
                 new_screenshot,
                 action_description,
             ) = await self.execute_action(function_call)
             all_observations.append(action_description)
-            self.logger.info(f"Observation#{i+1}: {action_description}")
+            self.logger.debug(f"Observation#{i+1}: {action_description}")
+            print(f"Observation#{i+1}: {action_description}")
             if is_stop_action:
                 final_answer = thoughts
                 break
@@ -564,7 +569,7 @@ class FaraAgent:
         elif args["action"] == "pause_and_memorize_fact":
             fact = str(args.get("fact"))
             self._facts.append(fact)
-            action_description= f"I memorized the following fact: {fact}"
+            action_description = f"I memorized the following fact: {fact}"
         elif args["action"] == "stop" or args["action"] == "terminate":
             action_description = args.get("thoughts")
             is_stop_action = True

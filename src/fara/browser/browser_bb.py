@@ -6,7 +6,7 @@ import signal
 import subprocess
 import time
 from typing import Any, Dict, Optional, Callable
-
+import platform
 import browserbase
 from browserbase import Browserbase
 from playwright.async_api import (
@@ -48,7 +48,7 @@ class BrowserBB:
         self.single_tab_mode = single_tab_mode
         self.use_browser_base = use_browser_base
         self.logger = logger or logging.getLogger("browser_manager")
-
+        self.is_linux = platform.system() == "Linux"
         self._viewport_height = viewport_height
         self._viewport_width = viewport_width
 
@@ -194,7 +194,8 @@ class BrowserBB:
 
     async def _init_regular_browser(self, channel: str = "chromium") -> None:
         """Initialize regular browser according to the specified channel."""
-        if not self.headless:
+        if not self.headless and self.is_linux:
+            print("STARTING XVFB")
             self.start_xvfb()
 
         launch_args: Dict[str, Any] = {"headless": self.headless}
@@ -218,7 +219,7 @@ class BrowserBB:
 
     async def _init_persistent_browser(self) -> None:
         """Initialize persistent browser with data directory."""
-        if not self.headless:
+        if not self.headless and self.is_linux:
             self.start_xvfb()
 
         launch_args: Dict[str, Any] = {"headless": self.headless}
