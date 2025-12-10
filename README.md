@@ -35,7 +35,7 @@ Then in one process, host the model:
 ```bash
 vllm serve "microsoft/Fara-7B" --port 5000 --dtype auto 
 ```
-Then you can iterative query it with:
+Then you can iteratively query it with:
 ```bash
 fara-cli --task "whats the weather in new york now"
 ```
@@ -44,7 +44,7 @@ To try Fara-7B inside Magentic-UI, please follow the instructions here [Magentic
 
 
 Notes:
-- If you're using Windows, we highly recommend using WSL2 (Windows Subsystem for Linux). Please the Windows instructions in the [Installation](#Installation) section.
+- If you're using Windows, we highly recommend using WSL2 (Windows Subsystem for Linux). Please see the Windows instructions in the [Installation](#Installation) section.
 - You might need to do `--tensor-parallel-size 2` with vllm command if you run out of memory
 
 <table>
@@ -198,7 +198,7 @@ python3 -m playwright install
 
 ## Hosting the Model
 
-**Recommended:** The easiest way to get started is using Azure Foundry hosting, which requires no GPU hardware or model downloads. Alternatively, you can self-host with VLLM if you have GPU resources available.
+**Recommended:** The easiest way to get started is using Azure Foundry hosting, which requires no GPU hardware or model downloads. Alternatively, you can self-host with vLLM if you have GPU resources available.
 
 ### Azure Foundry Hosting (Recommended)
 
@@ -238,16 +238,16 @@ That's it! No GPU or model downloads required.
 
 ### Self-hosting with vLLM or LM Studio / Ollama
 
-**If you have access to GPU resources, you can self-host Fara-7B using vLLM. This requires a GPU machine with sufficient VRAM (e.g., 24GB or more).**
+If you have access to GPU resources, you can self-host Fara-7B using vLLM. This requires a GPU machine with sufficient VRAM (e.g., 24GB or more).
 
-Only on Linux: all that is required is to run the following command to start the VLLM server:
+Only on Linux: all that is required is to run the following command to start the vLLM server:
 
 ```bash
 vllm serve "microsoft/Fara-7B" --port 5000 --dtype auto 
 ```
 For quantized models or lower VRAM GPUs, please see [Fara-7B GGUF on HuggingFace](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF).
 
-** For Windows/Mac, vLLM is not natively supported. You can use WSL2 on Windows to run the above command or LM Studio / Ollama as described below. **
+For Windows/Mac, vLLM is not natively supported. You can use WSL2 on Windows to run the above command or LM Studio / Ollama as described below.
 
 Otherwise, you can use [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/) to host the model locally. We currently recommend the following GGUF versions of our models [Fara-7B GGUF on HuggingFace](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF) for use with LM Studio or Ollama. Select the largest model that fits your GPU. Please ensure that context length is set to at least 15000 tokens and temperature to 0 for best results.
 
@@ -324,7 +324,7 @@ cd webeval/scripts
 
 Make sure you set a valid OpenAI GPT-4o endpoint in `endpoint_configs_gpt4o/dev` in order to run the WebVoyager LLM-as-a-judge! 
 
-**Option 1: Self-hosted VLLM**
+**Option 1: Self-hosted vLLM**
 
 ```bash
 python webvoyager.py --model_url /path/where/you/want/to/download/model/ --model_port 5000 --eval_oai_config ../endpoint_configs_gpt4o/dev/ --out_url /path/to/save/eval/files --device_id 0,1 --processes 1 --run_id 1 --max_rounds 100
@@ -346,7 +346,7 @@ python om2w.py --model_endpoint ../../endpoint_configs/ --eval_oai_config ../end
 
 - We use the same LLM-as-a-judge prompts and model (GPT-4o) as WebVoyager, hence the `--eval_oai_config` argument
 - Set `--browserbase` for browser session management (requires exported API key and project ID environment variables)
-- Avoid overloading a single VLLM deployment with more than ~10 concurrent processes due to known issues
+- Avoid overloading a single vLLM deployment with more than ~10 concurrent processes due to known issues
 - See debugging output in `fara/webeval/scripts/stdout.txt`
 
 ---
@@ -373,7 +373,7 @@ Each evaluation folder contains:
   - `scores/*_eval.json` - LLM judge scores (`gpt_eval.json` for WebVoyager, `WebJudge_Online_Mind2Web_eval-3.json` for Online-Mind2Web)
   - `web_surfer.log` - Action history and errors
   - `screenshot_X.png` - Screenshots captured before each action X
-  - `times.json` - contains start and endtimes of task
+  - `times.json` - contains start and end times of task
   - `core.log` - contains high level logs like if the trajectory needs to be started or is already cached/done, the evaluation score, duration, and errors encountered
 
 ### Running Analysis
