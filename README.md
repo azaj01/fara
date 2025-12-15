@@ -8,6 +8,7 @@
 [![Hugging Face Model](https://img.shields.io/badge/🤗-Model-yellow)](https://huggingface.co/microsoft/Fara-7b)
 [![Foundry](https://img.shields.io/badge/Azure-Foundry-0089D6)](https://aka.ms/foundry-fara-7b)
 [![Dataset](https://img.shields.io/badge/🤗-WebTailBench%20Dataset-orange)](https://huggingface.co/datasets/microsoft/WebTailBench)
+[![Paper](https://img.shields.io/badge/Paper-2511.19663-red)](https://arxiv.org/abs/2511.19663)
 
 </div>
 
@@ -415,19 +416,16 @@ To re-run failed tasks, execute the evaluation script again with the same `run_i
 {"message": "\nThought #3: The closest GameStop store to zip code 90028 is located at 5533 W Sunset Blvd, Los Angeles, CA 90028. It is currently closed and will open tomorrow at 11 AM. The contact number is (323) 466-3714.\nAction #3: executing tool 'terminate' with arguments {\"action\": \"terminate\", \"status\": \"success\"}", "timestamp": "2025-11-25T22:23:58.729038", "type": "OtherEvent"}
 {"message": "Observation#3: The closest GameStop store to zip code 90028 is located at 5533 W Sunset Blvd, Los Angeles, CA 90028. It is currently closed and will open tomorrow at 11 AM. The contact number is (323) 466-3714.", "timestamp": "2025-11-25T22:24:02.379069", "type": "OtherEvent"}
 ```
-
----
+</details>
 
 ## Citation
 
-If you use Fara in your research, please cite our work:
-
-<!-- ```bibtex
-@article{fara2025,
-  title={Fara: Fast and Accurate Web Agent},
-  author={Microsoft Research},
+If you use Fara-7B in your research, please use the following BibTeX entry.
+```bibtex
+@article{fara7b2025,
+  title={Fara-7B: An Efficient Agentic Model for Computer Use},
+  author={Awadallah, Ahmed and Lara, Yash and Magazine, Raghav and Mozannar, Hussein and Nambi, Akshay and Pandya, Yash and Rajeswaran, Aravind and Rosset, Corby and Taymanov, Alexey and Vineet, Vibhav and Whitehead, Spencer and Zhao, Andrew},
+  journal={arXiv:2511.19663},
   year={2025}
 }
-``` -->
-
----
+```
