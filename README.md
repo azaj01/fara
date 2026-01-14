@@ -308,7 +308,7 @@ pip install -e autogen-core
 pip install -e autogen-ext
 
 # Install webeval
-cd webeval
+cd ../../../webeval
 pip install -e .
 
 # Install playwright
