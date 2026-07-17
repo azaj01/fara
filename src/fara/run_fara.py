@@ -1,42 +1,151 @@
 import asyncio
 import argparse
 import os
-from .fara_agent import FaraAgent
-from .browser.browser_bb import BrowserBB
+import uuid
 import logging
 from typing import Dict
 from pathlib import Path
 import json
 
+from .agents.fara.fara_qwen3_next import FaraQwen3NextAgent, FaraQwen3NextAgentConfig
+from .environments.playwright import PlaywrightEnvironment
+from .core.run_context import RunContext
+from .core.data_point import Task, SolverStatus, UserMessage, UserMessageType
+from .fara_7b import FaraAgent
+from .browser.browser_bb import BrowserBB
 
-# Configure logging to only show logs from fara.fara_agent
+
+# Configure logging to only show logs from the fara agents
 logging.basicConfig(
     level=logging.CRITICAL,
     format="%(message)s",
 )
 
-# Enable INFO level only for fara.fara_agent
-fara_agent_logger = logging.getLogger("fara.fara_agent")
-fara_agent_logger.setLevel(logging.INFO)
-
-# Add a handler to ensure fara_agent logs are shown
-handler = logging.StreamHandler()
-handler.setLevel(logging.INFO)
-handler.setFormatter(logging.Formatter("%(message)s"))
-fara_agent_logger.addHandler(handler)
-fara_agent_logger.propagate = False  # Don't propagate to root logger
+for _logger_name in ("fara.agents.fara.fara_qwen3", "fara.fara_7b.fara_agent"):
+    _agent_logger = logging.getLogger(_logger_name)
+    _agent_logger.setLevel(logging.INFO)
+    _handler = logging.StreamHandler()
+    _handler.setLevel(logging.INFO)
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    _agent_logger.addHandler(_handler)
+    _agent_logger.propagate = False  # Don't propagate to root logger
 
 logger = logging.getLogger(__name__)
 
 
 DEFAULT_ENDPOINT_CONFIG = {
+    "model": "Fara1.5-9B",
+    "base_url": "http://localhost:5000/v1",
+    "api_key": "not-needed",
+}
+
+DEFAULT_FARA_7B_ENDPOINT_CONFIG = {
     "model": "microsoft/Fara-7B",
     "base_url": "http://localhost:5000/v1",
     "api_key": "not-needed",
 }
 
 
-async def run_fara_agent(
+async def run_fara15_agent(
+    initial_task: str = None,
+    endpoint_config: Dict[str, str] = None,
+    start_page: str = "https://www.bing.com/",
+    headless: bool = True,
+    output_folder: str = None,
+    save_screenshots: bool = True,
+    max_rounds: int = 100,
+    use_browser_base: bool = False,
+) -> None:
+    """Interactive loop for the Fara-1.5 agent (FaraQwen3NextAgent)."""
+    output_root = Path(output_folder or "./fara_runs")
+
+    print("Initializing Browser...")
+    env = PlaywrightEnvironment(
+        viewport_width=1440,
+        viewport_height=900,
+        headless=headless,
+        browser_channel="chromium",
+        start_page=start_page,
+        single_tab_mode=True,
+        use_browserbase=use_browser_base,
+    )
+    await env.initialize()
+    print("Browser Running... Starting Fara-1.5 Agent...")
+
+    agent = FaraQwen3NextAgent(
+        FaraQwen3NextAgentConfig(
+            client_config=endpoint_config,
+            max_rounds=max_rounds,
+            identity="fara_qwen35",
+            critical_points="fara-1.5",
+            save_screenshots=save_screenshots,
+        )
+    )
+
+    try:
+        task_text = initial_task
+        first_round = True
+        run_idx = 0
+
+        while True:
+            if task_text is None:
+                if first_round:
+                    task_text = input("Enter task: ").strip()
+                else:
+                    task_text = input(
+                        "\nEnter another task (or press Enter to exit): "
+                    ).strip()
+                if not task_text:
+                    print("Exiting...")
+                    break
+
+            print("##########################################")
+            print(f"Task: {task_text}")
+            print("##########################################")
+
+            run_idx += 1
+            output_dir = output_root / f"task_{run_idx}_{uuid.uuid4().hex[:8]}"
+            task = Task(task_id=uuid.uuid4().hex, instruction=task_text)
+            run_context = RunContext.create(
+                environment=env, task=task, output_dir=output_dir
+            )
+            await agent.initialize(run_context)
+
+            try:
+                print("Running Fara...\n")
+                final_answer, _, _ = await agent.run(run_context)
+
+                # Critical-point resume loop: agent paused to ask the user.
+                while (
+                    run_context.solver_log.status == SolverStatus.WAITING_FOR_USER
+                ):
+                    print(f"\nFara asks: {final_answer}")
+                    reply = input("Your response (Enter to abandon): ").strip()
+                    if not reply:
+                        break
+                    run_context.add_observation(
+                        UserMessage(
+                            content=reply,
+                            message_type=UserMessageType.CRITICAL_POINT_RESPONSE,
+                        )
+                    )
+                    final_answer, _, _ = await agent.run(run_context)
+
+                if run_context.solver_log.status == SolverStatus.COMPLETE:
+                    print(f"\nFinal Answer: {final_answer}")
+                print(f"Trajectory saved to: {output_dir}")
+            except Exception as e:
+                print(f"Error occurred: {e}")
+            finally:
+                await agent.close(run_context)
+
+            task_text = None
+            first_round = False
+    finally:
+        await env.close()
+
+
+async def run_fara7b_agent(
     initial_task: str = None,
     endpoint_config: Dict[str, str] = None,
     start_page: str = "https://www.bing.com/",
@@ -45,8 +154,8 @@ async def run_fara_agent(
     save_screenshots: bool = True,
     max_rounds: int = 100,
     use_browser_base: bool = False,
-):
-    # Initialize browser manager
+) -> None:
+    """Interactive loop for the previous-generation Fara-7B agent."""
     print("Initializing Browser...")
     browser_manager = BrowserBB(
         headless=headless,
@@ -62,7 +171,7 @@ async def run_fara_agent(
         use_browser_base=use_browser_base,
         logger=logger,
     )
-    print("Browser Running... Starting Fara Agent...")
+    print("Browser Running... Starting Fara-7B Agent...")
 
     agent = FaraAgent(
         browser_manager=browser_manager,
@@ -75,11 +184,8 @@ async def run_fara_agent(
 
     try:
         await agent.initialize()
-
-        # Interactive loop
         task = initial_task
         first_round = True
-
         while True:
             if task is None:
                 if first_round:
@@ -88,7 +194,6 @@ async def run_fara_agent(
                     task = input(
                         "\nEnter another task (or press Enter to exit): "
                     ).strip()
-
                 if not task:
                     print("Exiting...")
                     break
@@ -96,18 +201,15 @@ async def run_fara_agent(
             print("##########################################")
             print(f"Task: {task}")
             print("##########################################")
-
             try:
                 print("Running Fara...\n")
-                final_answer, all_actions, all_observations = await agent.run(task)
+                final_answer, _, _ = await agent.run(task)
                 print(f"\nFinal Answer: {final_answer}")
             except Exception as e:
                 print(f"Error occurred: {e}")
             task = None
             first_round = False
-
     finally:
-        # Close the agent and browser
         await agent.close()
 
 
@@ -132,10 +234,10 @@ def main():
         help="Run the browser in headful mode (show GUI, default is headless)",
     )
     parser.add_argument(
-        "--downloads_folder",
+        "--output_folder",
         type=str,
         default=None,
-        help="Folder to save screenshots and downloads",
+        help="Folder to save screenshots, downloads and the trajectory data_point.json",
     )
     parser.add_argument(
         "--save_screenshots",
@@ -177,6 +279,12 @@ def main():
         default=None,
         help="Model name to use (overrides endpoint_config)",
     )
+    parser.add_argument(
+        "--fara-7b",
+        action="store_true",
+        dest="fara_7b",
+        help="Run the previous-generation Fara-7B agent instead of Fara-1.5",
+    )
 
     args = parser.parse_args()
 
@@ -188,7 +296,9 @@ def main():
             "BROWSERBASE_PROJECT_ID"
         ), "BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID environment variables must be set to use browserbase"
 
-    endpoint_config = DEFAULT_ENDPOINT_CONFIG
+    endpoint_config = (
+        DEFAULT_FARA_7B_ENDPOINT_CONFIG if args.fara_7b else DEFAULT_ENDPOINT_CONFIG
+    )
     if args.endpoint_config:
         with open(args.endpoint_config, "r") as f:
             endpoint_config = json.load(f)
@@ -197,7 +307,6 @@ def main():
                 and "base_url" in endpoint_config
                 and "model" in endpoint_config
             ), "endpoint_config file must contain api_key, base_url, and model fields"
-    # Override with command-line arguments if provided
     if args.api_key:
         endpoint_config["api_key"] = args.api_key
     if args.base_url:
@@ -205,18 +314,32 @@ def main():
     if args.model:
         endpoint_config["model"] = args.model
 
-    asyncio.run(
-        run_fara_agent(
-            initial_task=args.task,
-            endpoint_config=endpoint_config,
-            start_page=args.start_page,
-            headless=not args.headful,
-            downloads_folder=args.downloads_folder,
-            save_screenshots=args.save_screenshots,
-            max_rounds=args.max_rounds,
-            use_browser_base=args.browserbase,
+    if args.fara_7b:
+        asyncio.run(
+            run_fara7b_agent(
+                initial_task=args.task,
+                endpoint_config=endpoint_config,
+                start_page=args.start_page,
+                headless=not args.headful,
+                downloads_folder=args.output_folder,
+                save_screenshots=args.save_screenshots,
+                max_rounds=args.max_rounds,
+                use_browser_base=args.browserbase,
+            )
         )
-    )
+    else:
+        asyncio.run(
+            run_fara15_agent(
+                initial_task=args.task,
+                endpoint_config=endpoint_config,
+                start_page=args.start_page,
+                headless=not args.headful,
+                output_folder=args.output_folder,
+                save_screenshots=args.save_screenshots,
+                max_rounds=args.max_rounds,
+                use_browser_base=args.browserbase,
+            )
+        )
 
 
 if __name__ == "__main__":

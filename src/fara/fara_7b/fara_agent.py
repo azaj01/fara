@@ -13,9 +13,9 @@ from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_l
 from playwright.async_api import Download
 from playwright.async_api import BrowserContext
 import asyncio
-from .browser.playwright_controller import PlaywrightController
+from ..browser.playwright_controller import PlaywrightController
 from ._prompts import get_computer_use_system_prompt
-from .fara_types import (
+from ..fara_types import (
     LLMMessage,
     SystemMessage,
     UserMessage,
@@ -26,7 +26,7 @@ from .fara_types import (
     message_to_openai_format,
     WebSurferEvent,
 )
-from .utils import get_trimmed_url
+from ..utils import get_trimmed_url
 
 
 # Canonical fara-1.0 action space mapping {action_name: set(arg_names)}.
