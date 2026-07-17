@@ -1,6 +1,6 @@
 <div align="center">
 
-# Fara-1.5: Scalable Learning Environments for Computer Use Agents
+# Fara1.5 – A family of frontier computer use agent models
 
 
 
@@ -308,7 +308,15 @@ If you have access to GPU resources, you can self-host Fara models with vLLM and
 vllm serve <model> --port 5000 --dtype auto
 ```
 
-The previous-generation [Fara-7B](https://huggingface.co/microsoft/Fara-7b) weights remain available on HuggingFace (with [GGUF variants](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF) for LM Studio / Ollama). If you didn't use vLLM to host, specify `--base_url [your_base_url] --api_key [your_api_key] --model [your_model_name]` when running `fara-cli`. Please ensure that context length is set to at least 15000 tokens and temperature to 0 for best results.
+The previous-generation [Fara-7B](https://huggingface.co/microsoft/Fara-7b) weights remain available on HuggingFace (with [GGUF variants](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF) for LM Studio / Ollama). Pass `--fara-7b` to run the Fara-7B agent instead of Fara-1.5:
+
+```bash
+fara-cli --fara-7b --task "how many pages does wikipedia have" --endpoint_config fara7b_config.json
+```
+
+If you didn't use vLLM to host, specify `--base_url [your_base_url] --api_key [your_api_key] --model [your_model_name]` when running `fara-cli`. Please ensure that context length is set to at least 15000 tokens and temperature to 0 for best results.
+
+Runs save a full trajectory — per-step screenshots and a `data_point.json` (task, actions, observations, and outcome) — to the folder passed via `--output_folder`.
 
 ## Reproducibility
 
