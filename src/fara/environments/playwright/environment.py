@@ -61,9 +61,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
 
     os_type = OSType.LINUX
 
-    # Browser-chrome shortcuts that Playwright can't trigger via page.keyboard
-    # (they affect browser UI, not the page). Dispatched to env methods so the
-    # agent can "press the shortcut like on a real computer" and it just works.
     _BROWSER_CHROME_DISPATCH: Dict[frozenset, str] = {
         frozenset({"Control", "r"}): "refresh",
         frozenset({"Control", "Shift", "r"}): "refresh",
@@ -101,14 +98,11 @@ class PlaywrightEnvironment(BrowserEnvironment):
 
         self._controller: PlaywrightController | None = None
 
-        # BrowserBase support
         self._bb = None
         self._session = None
         self._captcha_event = asyncio.Event()
-        self._captcha_event.set()  # Initially set (no captcha)
+        self._captcha_event.set()
 
-        # Optional task identifier — prepended to BB log lines for
-        # session<->task linkage in eval logs. Set via initialize(task_id=...).
         self._task_id: str | None = None
 
     def _tag(self) -> str:
@@ -140,9 +134,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         )
 
         if self.config.use_browserbase:
-            # _init_browserbase runs _setup_browser inside its retry loop so
-            # a start_page navigation failure or stuck captcha triggers a
-            # fresh session instead of bubbling up.
             await self._init_browserbase()
         elif self.config.browser_data_dir:
             await self._init_persistent_browser()
@@ -231,9 +222,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
 
     async def _connect_browserbase_once(self, project_id: str) -> None:
         """Run one BrowserBase bring-up: session, CDP, setup, captcha wait."""
-        # Clean slate: a prior attempt may have left _captcha_event cleared
-        # if it saw "solving-started" but the session died before
-        # "solving-finished" — the dead session can never set it.
         self._captcha_event.set()
 
         self._session = self._bb.sessions.create(
@@ -261,18 +249,10 @@ class PlaywrightEnvironment(BrowserEnvironment):
         assert len(self._context.pages) == 1
         self._page = self._context.pages[0]
 
-        # Context-level "console" already bubbles up page console messages
-        # for every current and future page in the context, so we don't
-        # also register on _page.
         self._context.on("console", self._handle_browserbase_console)
 
-        # Navigate to start_page + wire handlers. Failures here trigger
-        # a retry with a fresh session.
         await self._setup_browser()
 
-        # Best-effort wait for a captcha triggered on start_page.
-        # _captcha_event is already set when no captcha is active, so
-        # this returns immediately in the common case.
         try:
             await asyncio.wait_for(
                 self._captcha_event.wait(),
@@ -298,11 +278,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         try:
             await asyncio.sleep(3)
             try:
-                # Prefer "domcontentloaded" over "networkidle" — the latter
-                # can hang on sites with persistent network activity
-                # (analytics, websockets). If captcha triggered a
-                # navigation, this waits for the new DOM; otherwise it
-                # returns immediately.
                 await self._page.wait_for_load_state("domcontentloaded", timeout=10000)
             except Exception as e:
                 self.logger.warning(
@@ -339,8 +314,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
                 )
             except Exception:
                 pass
-            # Single canonical terminal line per session — grep with [BB-END]
-            # to reconstruct session<->task<->status without parsing tricks.
             self.logger.info(
                 f"[BB-END] task={self._task_id} session={session_id} "
                 f"browser_connected_at_teardown={browser_connected}"
@@ -358,10 +331,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         )
         self._page = await self._context.new_page()
 
-    # Hacky, brittle, undocumented: this cookie makes Bing serve search
-    # results as same-tab links instead of target="_blank", which skips
-    # the per-click popup-capture overhead on bing.com. Reverse-engineered
-    # empirically; Microsoft can change it anytime. See PR #1114.
     _BING_SAME_TAB_COOKIE = {
         "name": "SRCHHPGUSR",
         "value": "EXLKNT=0",
@@ -388,8 +357,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         ):
             await self._page.add_init_script(path=self.config.page_script_path)
 
-        # Inject Bing same-tab cookie before navigation so it applies to
-        # the very first bing.com load. See _BING_SAME_TAB_COOKIE above.
         try:
             await self._context.add_cookies([self._BING_SAME_TAB_COOKIE])
         except Exception as e:
@@ -485,7 +452,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         """Get screenshot of current page."""
         return await self.get_screenshot()
 
-    # --- Core GUI actions (ComputerEnvironment interface) ---
 
     async def left_click(self, x: int, y: int) -> None:
         new_page = await self._controller.click_coords(self._page, x, y)
@@ -535,7 +501,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         """Capture a screenshot of the current page."""
         return await self._controller.get_screenshot(self._page, path=path)
 
-    # --- Browser navigation (BrowserEnvironment interface) ---
 
     async def goto_url(self, url: str) -> None:
         await self._controller.visit_page(self._page, url)
@@ -546,7 +511,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
     async def refresh(self) -> None:
         await self._page.reload(wait_until="commit")
 
-    # --- Extended actions ---
 
     async def middle_click(self, x: int, y: int) -> None:
         await self._page.mouse.click(x, y, button="middle")
@@ -570,7 +534,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         """Horizontal scroll. Positive=right, negative=left."""
         await self._page.mouse.wheel(pixels, 0)
 
-    # --- Backward-compat aliases ---
 
     async def click(self, x: float, y: float) -> Dict[str, Any]:
         """Click at coordinates."""
@@ -612,7 +575,6 @@ class PlaywrightEnvironment(BrowserEnvironment):
         await self._controller.page_up(self._page, amount=amount)
         return {"success": True}
 
-    # --- Playwright-specific methods (id-based, CUA, etc.) ---
 
     async def click_id(self, identifier: str) -> Dict[str, Any]:
         """Click on an element by its identifier."""

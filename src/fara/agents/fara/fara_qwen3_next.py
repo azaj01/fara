@@ -219,7 +219,6 @@ class FaraQwen3NextAgent(FaraQwen3Agent):
     ) -> tuple[bool, str]:
         """Dispatch action using ComputerEnvironment canonical methods."""
 
-        # -- GUI actions --
 
         if action_type == "left_click":
             tgt_x, tgt_y = args["coordinate"]
@@ -280,7 +279,6 @@ class FaraQwen3NextAgent(FaraQwen3Agent):
             await env.hscroll(pixels)
             return False, f"I scrolled horizontally by {pixels} pixels."
 
-        # -- Browser-only actions --
 
         elif action_type == "visit_url":
             url = args.get("url", "")
@@ -315,7 +313,6 @@ class FaraQwen3NextAgent(FaraQwen3Agent):
             answer = await extract_from_page(markdown, question, self._client)
             return False, f"I read the page to answer: {question}\nAnswer: {answer}"
 
-        # -- Windows-only actions --
 
         elif action_type == "run_command":
             command = str(args.get("command", ""))
@@ -337,7 +334,6 @@ class FaraQwen3NextAgent(FaraQwen3Agent):
             )
             return False, f"I executed command: {command}\nOutput: {result}"
 
-        # -- Shared non-GUI actions --
 
         elif action_type == "ask_user_question":
             question = str(args.get("question", ""))

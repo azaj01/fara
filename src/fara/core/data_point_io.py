@@ -113,8 +113,6 @@ class DataPointWriter:
         return self._data_point
 
     def add_event(self, event: Union["ObservationEvent", Action]) -> DataPoint:
-        # Write to disk first so the log captures every event,
-        # including ones that cause the in-memory model to reject.
         self._solver_log_dir.mkdir(parents=True, exist_ok=True)
         with open(self._events_path, "a") as f:
             f.write(json.dumps(event.to_dict()) + "\n")
@@ -160,10 +158,8 @@ class DataPointReader:
     def read(input_dir: str | os.PathLike) -> DataPoint:
         d = Path(input_dir)
 
-        # Task (required)
         task = Task.from_dict(_load_json(d / _TASK_FILE))
 
-        # Metadata
         meta_path = d / _METADATA_FILE
         metadata = (
             DataPointMetadata.from_dict(_load_json(meta_path))
@@ -171,7 +167,6 @@ class DataPointReader:
             else DataPointMetadata()
         )
 
-        # Solver log
         solver_log = SolverLog()
         solver_log_dir = d / _SOLVER_LOG_DIR
 
@@ -195,7 +190,6 @@ class DataPointReader:
             if status_data.get("outcome") is not None:
                 solver_log.outcome = Outcome.from_dict(status_data["outcome"])
 
-        # Verification
         verification: Dict[str, VerificationResult] = {}
         verif_path = d / _VERIFICATION_FILE
         if verif_path.exists():

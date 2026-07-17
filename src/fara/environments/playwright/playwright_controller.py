@@ -47,12 +47,11 @@ def handle_target_closed(max_retries: int = 2, timeout_secs: int = 30):
     def decorator(func: F) -> F:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            # Extract the page object - assume it's the first argument after self
             logger = args[0].logger
             page = None
             if len(args) >= 2 and hasattr(
                 args[1], "url"
-            ):  # Check if second arg looks like a Page
+            ):
                 page = args[1]
 
             retries = 0
@@ -62,14 +61,12 @@ def handle_target_closed(max_retries: int = 2, timeout_secs: int = 30):
                 try:
                     return await func(*args, **kwargs)
                 except (TargetClosedError, PlaywrightError) as e:
-                    # Check if this is a tunnel connection error
                     is_tunnel_error = "net::ERR_TUNNEL_CONNECTION_FAILED" in str(e)
                     is_target_closed = isinstance(
                         e, TargetClosedError
                     ) or "Target page, context or browser has been closed" in str(e)
 
                     if not (is_tunnel_error or is_target_closed):
-                        # Not an error we handle, re-raise
                         raise e
 
                     last_error = e
@@ -79,7 +76,6 @@ def handle_target_closed(max_retries: int = 2, timeout_secs: int = 30):
                         raise e
 
                     if page is None:
-                        # Can't recover without page reference
                         raise e
 
                     error_type = (
@@ -90,16 +86,12 @@ def handle_target_closed(max_retries: int = 2, timeout_secs: int = 30):
                     )
 
                     try:
-                        # Attempt to recover the page
                         await _recover_page(page, timeout_secs, logger)
-                        # Small delay before retry
                         await asyncio.sleep(0.5)
                     except Exception as recovery_error:
                         logger.error(f"Page recovery failed: {recovery_error}")
-                        # If recovery fails, raise the original error
                         raise e from recovery_error
 
-            # This shouldn't be reached, but just in case
             raise last_error
 
         return wrapper
@@ -117,17 +109,11 @@ async def _recover_page(page: Page, timeout_secs: int = 30, logger=None) -> None
     """
     logger = logger or logging.getLogger("playwright_controller")
     try:
-        # First, try to check if the page is still responsive
         await page.evaluate("1", timeout=1000)
-        # If we get here, the page is actually fine
         return
     except Exception:
-        # Page is indeed problematic, attempt recovery
         pass
 
-    # If the underlying browser is gone (BB session died, CDP dropped),
-    # reload/goto on this page will both fail with the same TargetClosed —
-    # ~60s wasted per recovery. Bail out early.
     browser = page.context.browser if page.context else None
     if browser is not None and not browser.is_connected():
         raise Exception(
@@ -135,20 +121,16 @@ async def _recover_page(page: Page, timeout_secs: int = 30, logger=None) -> None
         )
 
     try:
-        # Stop any ongoing navigation
         await page.evaluate("window.stop()", timeout=2000)
     except Exception:
-        # Ignore errors from window.stop()
         pass
 
     try:
-        # Try to reload the page
         await page.reload(timeout=timeout_secs * 1000, wait_until="commit")
         logger.info("playwright_controller._recover_page(): Page recovery successful")
     except Exception as e:
         logger.error(f"playwright_controller._recover_page(): Page reload failed: {e}")
 
-        # Try alternative recovery: navigate to current URL
         try:
             current_url = page.url
             if current_url and current_url != "about:blank":
@@ -170,7 +152,6 @@ async def _recover_page(page: Page, timeout_secs: int = 30, logger=None) -> None
             )
 
 
-# Enhanced version that can handle browser context recreation
 def handle_target_closed_with_context(max_retries: int = 2, timeout_secs: int = 30):
     """
     Enhanced decorator that can also handle browser context recreation.
@@ -192,14 +173,12 @@ def handle_target_closed_with_context(max_retries: int = 2, timeout_secs: int = 
                 try:
                     return await func(*args, **kwargs)
                 except (TargetClosedError, PlaywrightError) as e:
-                    # Check if this is a tunnel connection error
                     is_tunnel_error = "net::ERR_TUNNEL_CONNECTION_FAILED" in str(e)
                     is_target_closed = isinstance(
                         e, TargetClosedError
                     ) or "Target page, context or browser has been closed" in str(e)
 
                     if not (is_tunnel_error or is_target_closed):
-                        # Not an error we handle, re-raise
                         raise e
 
                     last_error = e
@@ -219,18 +198,15 @@ def handle_target_closed_with_context(max_retries: int = 2, timeout_secs: int = 
                     )
 
                     try:
-                        # Check if the browser context is still alive
                         context = page.context
                         browser = context.browser
 
                         if browser and not browser.is_connected():
-                            # Browser connection is lost - this is a more serious issue
                             logger.error(
                                 "playwright_controller.handle_target_closed_with_context(): Browser connection lost - cannot recover automatically"
                             )
                             raise e
 
-                        # Try basic recovery first
                         await _recover_page(page, timeout_secs)
                         await asyncio.sleep(0.5)
 
@@ -283,13 +259,11 @@ class PlaywrightController:
         self._timeout_load = timeout_load
         self.logger = logger or logging.getLogger("playwright_controller")
 
-        # Set up the download handler
 
         self._page_script: str = ""
         self.last_cursor_position: Tuple[float, float] = (0.0, 0.0)
         self._text_utils = WebpageTextUtilsPlaywright()
 
-        # Read page_script
         with open(
             os.path.join(os.path.abspath(os.path.dirname(__file__)), "page_script.js"),
             "rt",
@@ -302,7 +276,6 @@ class PlaywrightController:
     @handle_target_closed()
     async def get_interactive_rects(self, page: Page) -> Dict[str, InteractiveRegion]:
         await self._ensure_page_ready(page)
-        # Read the regions from the DOM
         try:
             await page.evaluate(self._page_script)
         except Exception:
@@ -312,7 +285,6 @@ class PlaywrightController:
             await page.evaluate("MultimodalWebSurfer.getInteractiveRects();"),
         )
 
-        # Convert the results into appropriate types
         assert isinstance(result, dict)
         typed_results: Dict[str, InteractiveRegion] = {}
         for k in result:
@@ -367,9 +339,8 @@ class PlaywrightController:
     @handle_target_closed()
     async def on_new_page(self, page: Page) -> None:
         assert page is not None
-        # bring page to front just in case
         await page.bring_to_front()
-        page.on("download", self._download_handler)  # type: ignore
+        page.on("download", self._download_handler)
         if self.to_resize_viewport and self.viewport_width and self.viewport_height:
             await page.set_viewport_size(
                 {"width": self.viewport_width, "height": self.viewport_height}
@@ -385,7 +356,6 @@ class PlaywrightController:
             await page.wait_for_load_state("domcontentloaded", timeout=60000)
         except PlaywrightTimeoutError:
             self.logger.error("WARNING: Page load timeout, page might not be loaded")
-            # stop page loading
             await page.evaluate("window.stop()")
 
     @handle_target_closed()
@@ -408,7 +378,6 @@ class PlaywrightController:
             return screenshot
         except Exception:
             await page.evaluate("window.stop()")
-            # try again
             screenshot = await page.screenshot(path=path, timeout=15000)
             return screenshot
 
@@ -423,11 +392,9 @@ class PlaywrightController:
         reset_prior_metadata_hash = False
         reset_last_download = False
         try:
-            # Regular webpage
             await page.goto(url, wait_until="commit")
             reset_prior_metadata_hash = True
         except Exception as e_outer:
-            # Downloaded file
             if self.downloads_folder and "net::ERR_ABORTED" in str(e_outer):
                 async with page.expect_download() as download_info:
                     try:
@@ -476,12 +443,10 @@ class PlaywrightController:
     async def gradual_cursor_animation(
         self, page: Page, start_x: float, start_y: float, end_x: float, end_y: float
     ) -> None:
-        # animation helper
         steps = 20
         for step in range(steps):
             x = start_x + (end_x - start_x) * (step / steps)
             y = start_y + (end_y - start_y) * (step / steps)
-            # await page.mouse.move(x, y, steps=1)
             await page.evaluate(f"""
                 (function() {{
                     let cursor = document.getElementById('red-cursor');
@@ -494,7 +459,6 @@ class PlaywrightController:
         self.last_cursor_position = (end_x, end_y)
 
     async def add_cursor_box(self, page: Page, identifier: str) -> None:
-        # animation helper
         await page.evaluate(f"""
             (function() {{
                 let elm = document.querySelector("[__elementId='{identifier}']");
@@ -506,7 +470,6 @@ class PlaywrightController:
         """)
         await asyncio.sleep(0.3)
 
-        # Create a red cursor
         await page.evaluate("""
             (function() {
                 let cursor = document.createElement('div');
@@ -522,7 +485,6 @@ class PlaywrightController:
         """)
 
     async def remove_cursor_box(self, page: Page, identifier: str) -> None:
-        # Remove the highlight and cursor
         await page.evaluate(f"""
             (function() {{
                 let elm = document.querySelector("[__elementId='{identifier}']");
@@ -548,9 +510,9 @@ class PlaywrightController:
         """
         new_page: Page | None = None
         try:
-            async with page.expect_event("popup", timeout=1000) as page_info:  # type: ignore
+            async with page.expect_event("popup", timeout=1000) as page_info:
                 await action()
-                new_page = await page_info.value  # type: ignore
+                new_page = await page_info.value
                 assert isinstance(new_page, Page)
                 await self.on_new_page(new_page)
         except TimeoutError:
@@ -562,7 +524,6 @@ class PlaywrightController:
         await self._ensure_page_ready(page)
 
         if self.animate_actions:
-            # Move cursor to the box slowly
             start_x, start_y = self.last_cursor_position
             await self.gradual_cursor_animation(page, start_x, start_y, x, y)
             await asyncio.sleep(0.1)
@@ -580,7 +541,6 @@ class PlaywrightController:
         await self._ensure_page_ready(page)
         selector = f"[__elementId='{identifier}']"
         try:
-            # Wait for the element to be visible and scroll it into view
             await page.wait_for_selector(
                 selector, state="visible", timeout=self._timeout_load * 1000
             )
@@ -591,7 +551,6 @@ class PlaywrightController:
                 f"Element with identifier {identifier} not found or not visible"
             )
 
-        # Retrieve bounding box to determine the center for clicking
         box = await target.bounding_box()
         if not box:
             raise ValueError(
@@ -600,7 +559,6 @@ class PlaywrightController:
         center_x = box["x"] + box["width"] / 2
         center_y = box["y"] + box["height"] / 2
 
-        # In single tab mode, override target attributes to avoid opening a new tab
         if self.single_tab_mode:
             await target.evaluate("""
                 el => {
@@ -614,11 +572,10 @@ class PlaywrightController:
         download = None
         download_future: asyncio.Task[Download] | None = None
 
-        # Start listening for a download event if downloads are enabled
         if self.downloads_folder:
             try:
                 download_future = asyncio.create_task(
-                    page.wait_for_event(  # type: ignore
+                    page.wait_for_event(
                         "download", timeout=500
                     )
                 )
@@ -634,29 +591,24 @@ class PlaywrightController:
                     await page.mouse.click(center_x, center_y)
                     return None
                 else:
-                    # Create a task to wait for a new page event
                     new_page_promise: asyncio.Task[Page] = asyncio.create_task(
-                        page.context.wait_for_event(  # type: ignore
+                        page.context.wait_for_event(
                             "page", timeout=self._timeout_load * 1000
                         )
                     )
 
-                    # Perform the click
                     await page.mouse.move(center_x, center_y, steps=1)
                     await page.mouse.click(center_x, center_y, delay=10)
 
                     try:
-                        # Wait for the new page to open
                         new_page = await new_page_promise
                         await self.on_new_page(new_page)
                         return new_page
                     except TimeoutError:
-                        # No new page opened within timeout
                         return None
             except Exception as e:
                 raise e
 
-        # Optionally animate the click
         if self.animate_actions:
             await self.add_cursor_box(page, identifier)
             start_x, start_y = self.last_cursor_position
@@ -666,18 +618,14 @@ class PlaywrightController:
 
         new_page = await perform_click()
 
-        # Handle any download that occurred
         if download_future:
             try:
                 if not download:
-                    # Use asyncio.wait_for with a reasonable timeout
                     try:
                         download = await asyncio.wait_for(
                             download_future, timeout=self._timeout_load * 1000
                         )
                     except asyncio.TimeoutError:
-                        # No download occurred within the timeout period
-                        # logger.debug("No download detected within timeout period")
                         pass
 
                 if download:
@@ -706,7 +654,6 @@ class PlaywrightController:
             await page.wait_for_load_state("domcontentloaded")
             if self._sleep_after_action > 0:
                 await page.wait_for_timeout(self._sleep_after_action * 1000)
-        # await asyncio.sleep(10)
 
         return new_page
 
@@ -726,24 +673,19 @@ class PlaywrightController:
         await self._ensure_page_ready(page)
         new_page: Optional[Page] = None
         try:
-            # Wait for element to be present
             await page.wait_for_selector(
                 f"[__elementId='{identifier}']", state="attached"
             )
 
             try:
-                # First try normal click if element is visible
                 target = page.locator(f"[__elementId='{identifier}']").first
-                # Get the bounding box to check element size
                 box = await target.bounding_box()
 
                 if box and box["width"] > 0 and box["height"] > 0:
-                    # Element has visible size - use normal click
                     return await self.click_id(page, identifier)
 
             except PlaywrightError as e:
                 if "strict mode violation" in str(e):
-                    # If multiple elements found, try clicking the first visible one
                     elements = await page.locator(f"[__elementId='{identifier}']").all()
                     for element in elements:
                         try:
@@ -753,8 +695,6 @@ class PlaywrightController:
                         except PlaywrightError:
                             continue
 
-            # If click didn't work, try programmatic selection
-            # First check if it's a standard <option> element
             option_element = await page.evaluate(
                 """
                 (identifier) => {
@@ -771,7 +711,6 @@ class PlaywrightController:
             )
 
             if option_element:
-                # Handle standard <select> dropdown
                 await page.evaluate(
                     """
                     (identifier) => {
@@ -789,7 +728,6 @@ class PlaywrightController:
                     identifier,
                 )
             else:
-                # Handle custom dropdown/combobox options
                 await page.evaluate(
                     """
                     (identifier) => {
@@ -820,7 +758,6 @@ class PlaywrightController:
                     identifier,
                 )
 
-            # Optional sleep/pause after the action
             if self._sleep_after_action > 0:
                 await page.wait_for_timeout(self._sleep_after_action * 1000)
 
@@ -844,7 +781,6 @@ class PlaywrightController:
         await self._ensure_page_ready(page)
 
         if self.animate_actions:
-            # Move cursor to the coordinates slowly
             start_x, start_y = self.last_cursor_position
             await self.gradual_cursor_animation(page, start_x, start_y, x, y)
             await asyncio.sleep(0.1)
@@ -859,7 +795,6 @@ class PlaywrightController:
         await self._ensure_page_ready(page)
         target = page.locator(f"[__elementId='{identifier}']")
 
-        # See if it exists
         try:
             await target.wait_for(timeout=5000)
         except TimeoutError:
@@ -867,7 +802,6 @@ class PlaywrightController:
                 f"Tool use response is invalid: no such element to hover: {identifier}"
             )
 
-        # Hover over it
         await target.scroll_into_view_if_needed()
         await asyncio.sleep(0.3)
 
@@ -875,7 +809,6 @@ class PlaywrightController:
 
         if self.animate_actions:
             await self.add_cursor_box(page, identifier)
-            # Move cursor to the box slowly
             start_x, start_y = self.last_cursor_position
             end_x, end_y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
             await self.gradual_cursor_animation(page, start_x, start_y, end_x, end_y)
@@ -909,7 +842,6 @@ class PlaywrightController:
         new_page: Page | None = None
 
         if self.animate_actions:
-            # Move cursor to the box slowly
             start_x, start_y = self.last_cursor_position
             await self.gradual_cursor_animation(page, start_x, start_y, x, y)
             await asyncio.sleep(0.1)
@@ -919,23 +851,11 @@ class PlaywrightController:
         if delete_existing_text:
             await self._clear_field(page)
 
-        # Short strings (<100 chars) use 100ms delay per keystroke to avoid
-        # dropping characters on fields with JS input masks (phone, credit card,
-        # date). These masks have per-keystroke event handlers (onKeyDown/onChange)
-        # that need time to reformat the value and reposition the cursor. See
-        # https://github.com/microsoft/magentic-ui2.0/issues/279#issuecomment-4127277347
-        # for an example of where this issue manifested itself.
-        #
-        # Long strings use 10ms since they are almost always plain text fields
-        # with no input masks, and 100ms would be too slow (500 chars = 50s).
         if len(value) < 100:
             delay_typing_speed = 100
         else:
             delay_typing_speed = 10
 
-        # If a PlaywrightError occurs mid-typing (e.g., element detach,
-        # navigation), clear the field before retrying to avoid corrupted input
-        # from a partial first attempt followed by a full retry.
         try:
             await page.keyboard.type(value, delay=delay_typing_speed)
         except PlaywrightError:
@@ -945,10 +865,6 @@ class PlaywrightController:
         if press_enter:
             await page.keyboard.press("Enter")
 
-        # Wait briefly for a popup that may have opened during typing or Enter.
-        # Some websites open a new tab/popup on form submission (e.g., forms
-        # with target="_blank"). The listener starts after typing so the timeout
-        # window isn't consumed by keystroke delivery.
         try:
             new_page = await page.wait_for_event("popup", timeout=2000)
             assert isinstance(new_page, Page)
@@ -982,7 +898,6 @@ class PlaywrightController:
         target = page.locator(f"[__elementId='{identifier}']")
         await target.scroll_into_view_if_needed()
 
-        # See if it exists
         try:
             await target.wait_for(timeout=5000)
         except TimeoutError:
@@ -990,11 +905,9 @@ class PlaywrightController:
                 f"Tool use response is invalid: No such element to fill input_text into: {identifier}"
             ) from None
 
-        # Fill it
         box = cast(Dict[str, Union[int, float]], await target.bounding_box())
 
         if self.single_tab_mode:
-            # Remove target attributes to prevent new tabs
             await target.evaluate("""
                 el => el.removeAttribute('target')
                 // Remove 'target' on all <a> tags
@@ -1078,7 +991,7 @@ class PlaywrightController:
                     if self.animate_actions:
                         await asyncio.sleep(0.05)
                 except Exception:
-                    continue  # cleanup must not mask the primary failure
+                    continue
 
     @handle_target_closed()
     async def cua_click(
@@ -1154,7 +1067,6 @@ class PlaywrightController:
                 return document.body.innerText;
             }""")
             text_in_viewport = "\n".join(text_in_viewport.split("\n")[:n_lines])
-            # remove empty lines
             text_in_viewport = "\n".join(
                 [line for line in text_in_viewport.split("\n") if line.strip()]
             )

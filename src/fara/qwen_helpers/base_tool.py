@@ -126,13 +126,11 @@ class BaseTool(ABC):
         return params_json
 
     @property
-    def function(self) -> dict:  # Bad naming. It should be `function_info`.
+    def function(self) -> dict:
         return {
-            # 'name_for_human': self.name_for_human,
             "name": self.name,
             "description": self.description,
             "parameters": self.parameters,
-            # 'args_format': self.args_format
         }
 
     @property

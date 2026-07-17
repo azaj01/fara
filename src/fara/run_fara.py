@@ -15,7 +15,6 @@ from .fara_7b import FaraAgent
 from .browser.browser_bb import BrowserBB
 
 
-# Configure logging to only show logs from the fara agents
 logging.basicConfig(
     level=logging.CRITICAL,
     format="%(message)s",
@@ -28,7 +27,7 @@ for _logger_name in ("fara.agents.fara.fara_qwen3", "fara.fara_7b.fara_agent"):
     _handler.setLevel(logging.INFO)
     _handler.setFormatter(logging.Formatter("%(message)s"))
     _agent_logger.addHandler(_handler)
-    _agent_logger.propagate = False  # Don't propagate to root logger
+    _agent_logger.propagate = False
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +114,6 @@ async def run_fara15_agent(
                 print("Running Fara...\n")
                 final_answer, _, _ = await agent.run(run_context)
 
-                # Critical-point resume loop: agent paused to ask the user.
                 while (
                     run_context.solver_log.status == SolverStatus.WAITING_FOR_USER
                 ):

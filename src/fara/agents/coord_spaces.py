@@ -12,13 +12,6 @@ failure-analysis workflow — can import it without pulling in the
 heavyweight agent implementations.
 """
 
-# Fara family (FaraQwen3Agent, FaraQwen3NextAgent): emits coords in
-# [0, FARA_DISPLAY_SIZE); the agent's inference loop rescales to
-# viewport pixels via ``proc_coords`` before clicking.
 FARA_DISPLAY_SIZE: int = 1000
 
-# Qwen35Agent in default ``coordinate_type="relative"`` mode: emits
-# coords in [0, QWEN35_DISPLAY_SIZE]. Note the off-by-one vs Fara — the
-# divisor used in :func:`Qwen35Agent.adjust_coordinates` is 999, not
-# 1000.
 QWEN35_DISPLAY_SIZE: int = 999

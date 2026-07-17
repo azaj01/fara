@@ -100,7 +100,6 @@ class FaraQwen3AgentConfig(AgentConfig):
     raise_on_captcha_timeout: bool = True
     terminate_on_parse_error: bool = False
     image_token_estimate: int = 1500
-    # When >0, drop oldest screenshots until the estimated prompt is <= this cap.
     image_budget_token_cap: int = 0
 
 
@@ -141,9 +140,6 @@ class FaraQwen3Agent(Agent):
         self._pending_observation: str = ""
         self._os_type: str = "linux"
         self._output_dir = None
-        # Captcha-wait disable: after `config.captcha_timeout_limit`
-        # consecutive captcha-wait timeouts in a single run, stop waiting
-        # for captchas at all. A limit of 0 disables the gate up front.
         self._captcha_timeouts: int = 0
         self._captcha_disabled: bool = self.config.captcha_timeout_limit <= 0
 
@@ -191,12 +187,10 @@ class FaraQwen3Agent(Agent):
 
         pending_user_response = ""
         if self._state.chat_history:
-            # Continuation after WAITING_FOR_USER
             traj.status = SolverStatus.RUNNING
             pending_user_response = traj.get_last_user_message() or ""
             start_step = self._state.current_step
         else:
-            # Fresh start
             task_instruction = run_context.task.instruction
             scaled_screenshot = await self._get_scaled_screenshot(env)
             await self._save_screenshot(

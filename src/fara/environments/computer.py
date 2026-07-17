@@ -52,13 +52,12 @@ class ComputerEnvironment(Environment):
     async def save_state(self) -> dict:
         """Persist the resolved viewport so prepro gets the actual (possibly
         randomized) dims rather than the raw seed values."""
-        cfg: ComputerEnvironmentConfig = self.config  # type: ignore[assignment]
+        cfg: ComputerEnvironmentConfig = self.config
         return {
             "viewport_width": cfg.viewport_width,
             "viewport_height": cfg.viewport_height,
         }
 
-    # --- Core GUI actions (required) ---
 
     @abstractmethod
     async def left_click(self, x: int, y: int) -> None: ...
@@ -117,7 +116,6 @@ class ComputerEnvironment(Environment):
                     ) from e
                 await asyncio.sleep(delay)
 
-    # --- Extended actions (optional) ---
 
     async def middle_click(self, x: int, y: int) -> None:
         raise NotImplementedError

@@ -53,7 +53,6 @@ def save_and_truncate_command_output(
     if max_chars <= 0 or len(output) <= max_chars:
         return output
 
-    # Save to host output_dir for post-run inspection
     if output_dir:
         host_dir = output_dir / CMD_OUTPUT_DIR
         os.makedirs(host_dir, exist_ok=True)

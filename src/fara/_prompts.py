@@ -10,9 +10,6 @@ from .qwen_helpers.base_tool import BaseTool
 from .qwen_helpers.fncall_prompt import NousFnCallPrompt
 from .qwen_helpers.utils import smart_resize
 
-# ============================================================
-# Model identities
-# ============================================================
 FARA_QWEN35_IDENTITY = """\
 You are Fara, a computer use agent (CUA) specialized for web browsers. \
 You are developed by Microsoft AI Frontiers. You assist users with \
@@ -45,9 +42,6 @@ This edition of the model was trained using SFT on top of \
 Qwen3-VL-8B-Instruct, using a synthetic data mixture generated and \
 developed by Microsoft AI Frontiers."""
 
-# ============================================================
-# Critical points
-# ============================================================
 CRITICAL_POINTS_FARA_1_5 = """\
 A critical point is a situation where we must pause and request information or confirmation from the user before \
 proceeding. There are three types:
@@ -83,10 +77,6 @@ CRITICAL_POINTS_REGISTRY = {
     "fara-1.5": CRITICAL_POINTS_FARA_1_5,
 }
 
-# NOTE: {tool_descs} is the ONLY placeholder — it is filled by
-# NousFnCallPrompt with the computer_use tool JSON schema (generated
-# dynamically per-image for screen resolution). All other braces must be
-# doubled to survive Python's str.format().
 FN_CALL_FORMAT = (
     "You are provided with function signatures within <tools></tools> XML tags:\n"
     "<tools>\n"

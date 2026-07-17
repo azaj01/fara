@@ -46,11 +46,6 @@ class Component(BaseModel):
 class SolverStatus(str, Enum):
     RUNNING = "running"
     COMPLETE = "complete"
-    # Loop ended without a clean terminate. TIMED_OUT / MAX_ROUNDS name the two
-    # structured cut-offs; ABORTED is the catch-all for any other abnormal end
-    # (e.g. an agent crash). The cause is machine-checkable on the status alone,
-    # without a free-text field. (LLM-call finish reasons live on
-    # LLMMessage.finish_reason.)
     ABORTED = "aborted"
     TIMED_OUT = "timed_out"
     MAX_ROUNDS = "max_rounds"
@@ -68,11 +63,6 @@ class LLMUsage(Component):
 class LLMMessage(Component):
     """A single LLM call: request/response pair."""
 
-    # Model that served the call (resolved through the graceful_retry wrapper),
-    # used for per-message cost pricing. ``label`` tags the call with its
-    # pipeline step / attempt / endpoint (e.g. "step2_relevance",
-    # "attempt2") so a flat conversation reconstructs per-step and
-    # per-endpoint breakdowns by grouping.
     model: Optional[str] = None
     label: str = ""
     raw_response: str = ""
@@ -336,12 +326,11 @@ class SolverLog(Component):
                 d[key] = []
             d[key].append(obs)
 
-        # Pass 1: build steps with actions; collect all observations with action_id
         result: List[Step] = []
-        current_pre: List[Observation] = []  # action_id=None only
+        current_pre: List[Observation] = []
         post_obs: List[
             tuple
-        ] = []  # (obs, step_index_after) for observations with action_id
+        ] = []
         for event in self.events:
             if isinstance(event, Action):
                 result.append(
@@ -355,11 +344,9 @@ class SolverLog(Component):
             else:
                 post_obs.append((event, len(result)))
 
-        # Trailing observations with no action_id
         if with_tail_observations and current_pre:
             result.append(Step(observations_pre=ObservationsPre(main=current_pre)))
 
-        # Pass 2: populate observations_post and observations_pre.late
         action_id_to_step_idx: Dict[str, int] = {}
         for i, step in enumerate(result):
             if step.action is not None and step.action.id is not None:
@@ -382,7 +369,6 @@ class SolverLog(Component):
                         result[next_step_idx].observations_pre.late, obs.action_id, obs
                     )
 
-        # Pass 3: link previous_post and next_pre
         for i in range(1, len(result)):
             result[i].observations_pre.previous_post = result[
                 i - 1
@@ -511,11 +497,6 @@ class VerificationResult(Component):
     reasoning: Optional[str] = None
     verifier_name: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    # Every LLM call this verifier made, recorded as it happened via
-    # core.usage.record_call. Single source for verifier token usage + cost
-    # (core.usage.conversation_cost); replaces the old per-endpoint snapshot
-    # stats. Per-step / per-endpoint breakdowns come from grouping messages on
-    # their .label / .model.
     llm_conversation: LLMConversation = Field(default_factory=LLMConversation)
 
     @property
@@ -525,9 +506,6 @@ class VerificationResult(Component):
         return self.score >= 0.5
 
 
-# The solver/agent only ever produces the generic VerificationResult; the
-# specialized verifier-pipeline result schemas from agento_next are not part
-# of this inference repo.
 VerificationResultEvent = VerificationResult
 
 

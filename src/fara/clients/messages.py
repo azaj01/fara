@@ -126,12 +126,10 @@ def message_to_openai_format(message: LLMMessage) -> Dict[str, Any]:
         else "user"
     )
 
-    # Handle multimodal content (text + images)
     if isinstance(message.content, list):
         content_parts = []
         for item in message.content:
             if isinstance(item, ImageObj):
-                # Convert image to base64 data URL
                 base64_image = item.to_base64()
                 content_parts.append(
                     {

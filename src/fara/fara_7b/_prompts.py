@@ -9,7 +9,6 @@ from ..qwen_helpers.schema import (
 from ..qwen_helpers.utils import smart_resize
 
 
-# @register_tool("computer_use")
 class FaraComputerUse(BaseTool):
     name = "computer_use"
 

@@ -33,14 +33,12 @@ def compact_messages(
         max_prompt_tokens: Target token budget. <=0 disables compaction.
         min_keep_rounds: Minimum recent rounds to always retain.
     """
-    # TODO: this is not maybe the best compacting messages strategy
     if max_prompt_tokens <= 0:
         return messages
     token_count = client.count_tokens(messages, tools)
     if token_count <= max_prompt_tokens:
         return messages
 
-    # Identify round triplet start indices (skip system[0] and initial user[1])
     round_starts = []
     idx = 2
     while idx + 2 < len(messages):
@@ -57,7 +55,6 @@ def compact_messages(
     if not removable:
         return messages
 
-    # Remove from the middle outward
     mid = len(removable) // 2
     removal_order = sorted(range(len(removable)), key=lambda i: abs(i - mid))
 

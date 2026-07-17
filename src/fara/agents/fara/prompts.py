@@ -6,7 +6,9 @@ identities, the critical-points block, and the fn-call template). Only the
 browser tool set is supported here.
 """
 
-from ..._prompts import get_computer_use_system_prompt  # noqa: F401
+from ..._prompts import get_computer_use_system_prompt
+
+__all__ = ["get_computer_use_system_prompt", "TOOL_SET_TO_MODE"]
 
 TOOL_SET_TO_MODE = {
     "BROWSER_TOOLS_CORE": "fara_next_browser",
