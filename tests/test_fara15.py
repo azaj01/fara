@@ -15,7 +15,7 @@ from fara.agents.fara.fara15_agent import (
     Fara15AgentConfig,
     extract_allowed_actions,
 )
-from fara._prompts import (
+from fara.agents.fara._prompts import (
     CRITICAL_POINTS_REGISTRY,
     IDENTITY_REGISTRY,
 )
@@ -86,7 +86,7 @@ def test_system_prompt_byte_identical_to_training():
     """The generated prompt must match agento_train's exactly — the model was
     trained on that string. Rebuilds the expected prompt from the vendored
     identity/critical-points/tool schema and compares byte-for-byte."""
-    from fara._prompts import (
+    from fara.agents.fara._prompts import (
         FN_CALL_FORMAT,
         FaraBrowserComputerUse,
         FARA_QWEN35_IDENTITY,

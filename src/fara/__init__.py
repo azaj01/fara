@@ -6,7 +6,6 @@ from .environments.playwright import (
 from .core.data_point import DataPoint, Task
 from .core.run_context import RunContext
 from .fara_7b import FARA_ACTION_DEFINITIONS, FaraAgent
-from .browser.playwright_controller import PlaywrightController
 
 __all__ = [
     "Fara15Agent",
@@ -18,5 +17,4 @@ __all__ = [
     "RunContext",
     "FARA_ACTION_DEFINITIONS",
     "FaraAgent",
-    "PlaywrightController",
 ]

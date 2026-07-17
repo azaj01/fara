@@ -12,7 +12,7 @@ from .environments.playwright import PlaywrightEnvironment
 from .core.run_context import RunContext
 from .core.data_point import Task, SolverStatus, UserMessage, UserMessageType
 from .fara_7b import FaraAgent
-from .browser.browser_bb import BrowserBB
+from .fara_7b.browser.browser_bb import BrowserBB
 
 
 logging.basicConfig(

@@ -6,9 +6,9 @@ composable fara-qwen3vl fn-call template (identity + critical points).
 
 from typing import Union
 
-from .qwen_helpers.base_tool import BaseTool
-from .qwen_helpers.fncall_prompt import NousFnCallPrompt
-from .qwen_helpers.utils import smart_resize
+from ...qwen_helpers.base_tool import BaseTool
+from ...qwen_helpers.fncall_prompt import NousFnCallPrompt
+from ...qwen_helpers.utils import smart_resize
 
 FARA_QWEN35_IDENTITY = """\
 You are Fara, a computer use agent (CUA) specialized for web browsers. \

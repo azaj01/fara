@@ -29,7 +29,7 @@ from tenacity import (
     before_sleep_log,
 )
 
-from ..._prompts import get_computer_use_system_prompt
+from ._prompts import get_computer_use_system_prompt
 from ...clients.wrapper import ChatCompletionClient
 from ...clients.create_utils import create_client_from_config
 from ...clients.messages import (
