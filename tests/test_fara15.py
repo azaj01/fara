@@ -1,4 +1,4 @@
-"""Tests for the Fara-1.5 agent (vendored FaraQwen3NextAgent).
+"""Tests for the Fara-1.5 agent (Fara15Agent).
 
 Covers the two things the port must get exactly right: the system prompt
 the model sees (identity + critical points + tool schema), and the
@@ -10,9 +10,9 @@ import logging
 
 from PIL import Image
 
-from fara import DataPoint, FaraQwen3NextAgent, Task
-from fara.agents.fara.fara_qwen3_next import (
-    FaraQwen3NextAgentConfig,
+from fara import DataPoint, Fara15Agent, Task
+from fara.agents.fara.fara15_agent import (
+    Fara15AgentConfig,
     extract_allowed_actions,
 )
 from fara._prompts import (
@@ -49,8 +49,8 @@ BROWSER_ACTIONS = {
 
 
 def _make_agent(identity="fara_qwen35"):
-    agent = FaraQwen3NextAgent(
-        FaraQwen3NextAgentConfig(
+    agent = Fara15Agent(
+        Fara15AgentConfig(
             client_config={"model": "m", "base_url": "u", "api_key": "k"},
             identity=identity,
         )
@@ -122,7 +122,7 @@ def test_proc_coords_scales_display_space_to_viewport():
 
 
 def test_parse_thoughts_and_action():
-    agent = FaraQwen3NextAgent.__new__(FaraQwen3NextAgent)
+    agent = Fara15Agent.__new__(Fara15Agent)
     agent.logger = logging.getLogger("test")
     action_json = json.dumps(
         {

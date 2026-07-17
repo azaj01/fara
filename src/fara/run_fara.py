@@ -7,7 +7,7 @@ from typing import Dict
 from pathlib import Path
 import json
 
-from .agents.fara.fara_qwen3_next import FaraQwen3NextAgent, FaraQwen3NextAgentConfig
+from .agents.fara.fara15_agent import Fara15Agent, Fara15AgentConfig
 from .environments.playwright import PlaywrightEnvironment
 from .core.run_context import RunContext
 from .core.data_point import Task, SolverStatus, UserMessage, UserMessageType
@@ -20,7 +20,7 @@ logging.basicConfig(
     format="%(message)s",
 )
 
-for _logger_name in ("fara.agents.fara.fara_qwen3", "fara.fara_7b.fara_agent"):
+for _logger_name in ("fara.agents.fara.fara15_agent", "fara.fara_7b.fara_agent"):
     _agent_logger = logging.getLogger(_logger_name)
     _agent_logger.setLevel(logging.INFO)
     _handler = logging.StreamHandler()
@@ -55,7 +55,7 @@ async def run_fara15_agent(
     max_rounds: int = 100,
     use_browser_base: bool = False,
 ) -> None:
-    """Interactive loop for the Fara-1.5 agent (FaraQwen3NextAgent)."""
+    """Interactive loop for the Fara-1.5 agent."""
     output_root = Path(output_folder or "./fara_runs")
 
     print("Initializing Browser...")
@@ -71,8 +71,8 @@ async def run_fara15_agent(
     await env.initialize()
     print("Browser Running... Starting Fara-1.5 Agent...")
 
-    agent = FaraQwen3NextAgent(
-        FaraQwen3NextAgentConfig(
+    agent = Fara15Agent(
+        Fara15AgentConfig(
             client_config=endpoint_config,
             max_rounds=max_rounds,
             identity="fara_qwen35",

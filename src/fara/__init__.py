@@ -1,8 +1,4 @@
-from .agents.fara.fara_qwen3_next import (
-    FaraQwen3NextAgent,
-    FaraQwen3NextAgentConfig,
-)
-from .agents.fara.fara_qwen3 import FaraQwen3Agent, FaraQwen3AgentConfig
+from .agents.fara.fara15_agent import Fara15Agent, Fara15AgentConfig
 from .environments.playwright import (
     PlaywrightEnvironment,
     PlaywrightEnvironmentConfig,
@@ -13,10 +9,8 @@ from .fara_7b import FARA_ACTION_DEFINITIONS, FaraAgent
 from .browser.playwright_controller import PlaywrightController
 
 __all__ = [
-    "FaraQwen3NextAgent",
-    "FaraQwen3NextAgentConfig",
-    "FaraQwen3Agent",
-    "FaraQwen3AgentConfig",
+    "Fara15Agent",
+    "Fara15AgentConfig",
     "PlaywrightEnvironment",
     "PlaywrightEnvironmentConfig",
     "DataPoint",

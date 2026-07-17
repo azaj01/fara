@@ -1,19 +1,25 @@
-"""FaraQwen3Agent - Web automation agent using Qwen3 vision-language model."""
+"""Fara-1.5 web automation agent (FaraNext browser action set).
+
+Single-class port of agento_next's FaraQwen3NextAgent: the browser
+observe-think-act loop, the expanded action space (double/right/triple
+click, left_click_drag, hscroll, read_page_answer_question,
+ask_user_question), and DataPoint trajectory logging via RunContext.
+"""
 
 from __future__ import annotations
 
+import ast
 import copy
 import io
 import json
-import ast
 import logging
+import re
 import shutil
-
-import openai
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 from urllib.parse import quote_plus
 
+import openai
 from PIL import Image
 from tenacity import (
     retry,
@@ -23,6 +29,7 @@ from tenacity import (
     before_sleep_log,
 )
 
+from ..._prompts import get_computer_use_system_prompt
 from ...clients.wrapper import ChatCompletionClient
 from ...clients.create_utils import create_client_from_config
 from ...clients.messages import (
@@ -33,7 +40,6 @@ from ...clients.messages import (
     ImageObj,
     FunctionCall,
 )
-
 from ...core.agent import Agent, AgentConfig
 from ...core.run_context import RunContext
 from ...core.data_point import (
@@ -47,48 +53,47 @@ from ...core.data_point import (
 )
 from ..captcha import wait_for_captcha
 from ..coord_spaces import FARA_DISPLAY_SIZE
+from ..computer_agent.utils import extract_from_page
+from ..utils import format_text_observation
 from .fara_types import WebSurferEvent
-from .prompts import get_computer_use_system_prompt
 from .utils import get_trimmed_url
 
 
-class FaraQwen3AgentConfig(AgentConfig):
-    """Configuration for FaraAgent.
+def extract_allowed_actions(system_prompt_text: str) -> frozenset[str]:
+    """Extract the allowed action names from the tool schema enum in the system prompt."""
+    match = re.search(r'"enum":\s*\[([^\]]+)\]', system_prompt_text)
+    if not match:
+        raise ValueError("Could not find action enum in system prompt")
+    return frozenset(json.loads(f"[{match.group(1)}]"))
+
+
+class Fara15AgentConfig(AgentConfig):
+    """Configuration for Fara15Agent.
 
     Notable fields:
       extra_create_args: Extra kwargs merged on top of ``temperature: 0`` and
-        forwarded to ``chat.completions.create``. vLLM-only keys are routed
-        via ``extra_body``.
-      auto_user_reply: When True, ``ask_user_question`` does NOT halt
-        the run — a fixed dummy user response is injected and the agent
-        continues. For eval / no-user-simulator settings only. Default False
-        preserves ``task_workflow.py``'s ``WAITING_FOR_USER`` semantics for
-        data_gen.
-      captcha_timeout_limit: Number of consecutive captcha-wait timeouts
-        tolerated within a single run before the per-step captcha-wait
-        gate is auto-disabled for the rest of the run. Set to ``0`` to
-        skip the gate entirely from the start (appropriate without a
-        Browserbase cloud session, which is what triggers the captcha
-        solver). Defaults to ``2``.
-      raise_on_captcha_timeout: When True, restore the legacy behavior
-        of raising ``RuntimeError`` on the first captcha-wait timeout.
-        When False (default), the agent logs a warning and moves past
-        the timed-out captcha, falling back to ``captcha_timeout_limit``
-        to auto-disable the gate after repeated timeouts.
+        forwarded to ``chat.completions.create``.
+      auto_user_reply: When True, ``ask_user_question`` does NOT halt the run —
+        a fixed dummy user response is injected and the agent continues (for
+        eval / no-user-simulator settings only).
+      captcha_timeout_limit: Consecutive captcha-wait timeouts tolerated in a
+        single run before the per-step captcha gate is auto-disabled. ``0``
+        skips the gate from the start (appropriate without a Browserbase
+        session, which is what triggers the captcha solver).
+      raise_on_captcha_timeout: When True, raise on the first captcha-wait
+        timeout instead of moving past the unsolved captcha.
     """
 
-    name: str = "fara"
+    name: str = "fara_next"
     client_config: dict[str, Any] | None = None
-    start_page: str = "about:blank"
     max_rounds: int = 10
     max_n_images: int = 3
+    max_observation_chars: int = 1000
     fn_call_template: str = "fara-qwen3vl"
-    identity: str | None = "fara_qwen3vl"
+    identity: str | None = "fara_qwen35"
     critical_points: str | None = "fara-1.5"
-    computer_use_mode: str = "aurora"
+    computer_use_mode: str = "fara_next_browser"
     save_screenshots: bool = False
-    animate_actions: bool = False
-    single_tab_mode: bool = True
     include_input_text_key_args: bool = True
     viewport_width: int = 1440
     viewport_height: int = 900
@@ -104,8 +109,8 @@ class FaraQwen3AgentConfig(AgentConfig):
 
 
 @dataclass
-class FaraQwen3AgentState:
-    """Mutable state for FaraQwen3Agent that persists across resume calls."""
+class Fara15AgentState:
+    """Mutable state that persists across resume calls."""
 
     chat_history: list[LLMMessage] = field(default_factory=list)
     facts: list[str] = field(default_factory=list)
@@ -115,31 +120,33 @@ class FaraQwen3AgentState:
     mlm_height: int = 0
 
 
-class FaraQwen3Agent(Agent):
-    """Web automation agent using vision-language models."""
+class Fara15Agent(Agent):
+    """Web automation agent with the FaraNext browser action set."""
 
-    DEFAULT_START_PAGE = "https://www.bing.com/"
     DISPLAY_SIZE = FARA_DISPLAY_SIZE
     PATCH_SIZE = 16
     MERGE_SIZE = 2
     USER_MESSAGE = "Here is the next screenshot. Think about what to do next."
     MAX_URL_LENGTH = 100
 
+    _TEXT_OBSERVATION_ACTIONS: frozenset[str] = frozenset({"read_page_answer_question"})
+
+    _MODE_CANONICAL_IDENTITY: dict[str, tuple[str, ...]] = {
+        "fara_next_browser": ("fara_qwen3vl", "fara_qwen35"),
+        "fara_next_windows": ("fara_qwen3vl_windows", "fara_qwen35_windows"),
+        "fara_next_windows_core": ("fara_qwen3vl_windows", "fara_qwen35_windows"),
+    }
+
     def __init__(
-        self, config: FaraQwen3AgentConfig | dict[str, Any] | None = None, **kwargs: Any
+        self, config: Fara15AgentConfig | dict[str, Any] | None = None, **kwargs: Any
     ):
         super().__init__(config, **kwargs)
-        self.config: FaraQwen3AgentConfig
-        if type(self) is FaraQwen3Agent:
-            assert (
-                self.config.computer_use_mode == "aurora"
-            ), f"FaraQwen3Agent is aurora-v2 era; got computer_use_mode={self.config.computer_use_mode!r}"
+        self.config: Fara15AgentConfig
         self.logger = logging.getLogger(__name__)
         self._client: ChatCompletionClient | None = None
-        self._state: FaraQwen3AgentState | None = None
+        self._state: Fara15AgentState | None = None
         self._pending_observation: str = ""
-        self._os_type: str = "linux"
-        self._output_dir = None
+        self._allowed_actions: frozenset[str] = frozenset()
         self._captcha_timeouts: int = 0
         self._captcha_disabled: bool = self.config.captcha_timeout_limit <= 0
 
@@ -153,13 +160,13 @@ class FaraQwen3Agent(Agent):
         }
 
     @classmethod
-    def _get_config_class(cls) -> type[FaraQwen3AgentConfig]:
-        return FaraQwen3AgentConfig
+    def _get_config_class(cls) -> type[Fara15AgentConfig]:
+        return Fara15AgentConfig
 
     async def initialize(self, run_context: RunContext) -> None:
-        """Initialize the agent."""
+        """Initialize the agent for a run."""
         await super().initialize(run_context)
-        self._state = FaraQwen3AgentState(
+        self._state = Fara15AgentState(
             mlm_width=self.config.viewport_width,
             mlm_height=self.config.viewport_height,
         )
@@ -171,19 +178,39 @@ class FaraQwen3Agent(Agent):
         else:
             raise ValueError("Either client or client_config must be provided")
 
+        valid_modes = set(self._MODE_CANONICAL_IDENTITY)
+        if self.config.computer_use_mode not in valid_modes:
+            raise ValueError(
+                f"Unknown computer_use_mode '{self.config.computer_use_mode}'. "
+                f"Known values: {sorted(valid_modes)}"
+            )
+        canonical_identities = self._MODE_CANONICAL_IDENTITY[
+            self.config.computer_use_mode
+        ]
+        if (
+            self.config.identity is not None
+            and self.config.identity not in canonical_identities
+        ):
+            raise ValueError(
+                f"identity={self.config.identity!r} does not match any canonical "
+                f"identity in {list(canonical_identities)!r} for "
+                f"computer_use_mode={self.config.computer_use_mode!r}. "
+                f"Use one of {list(canonical_identities)!r} or set identity=None "
+                f"to auto-detect."
+            )
+
     async def run(
         self, run_context: RunContext, input: Any = None
     ) -> Tuple[str, List, List]:
         """Run the agent on a task.
 
-        Supports resuming after WAITING_FOR_USER: if ``_state.chat_history``
-        is already populated the fresh-start init is skipped and the user
-        response is appended to the conversation.
+        Supports resuming after WAITING_FOR_USER: if ``_state.chat_history`` is
+        already populated the fresh-start init is skipped and the user response
+        is appended to the conversation.
         """
         env = run_context.environment
+
         traj = run_context.solver_log
-        self._os_type = getattr(env, "os_type", "linux")
-        self._output_dir = run_context.output_dir
 
         pending_user_response = ""
         if self._state.chat_history:
@@ -337,10 +364,9 @@ class FaraQwen3Agent(Agent):
         await super().close(run_context)
 
     def _get_final_answer(self, thoughts: str, action_description: str) -> str:
-        return thoughts
+        return action_description
 
     def _get_observation_prefix(self) -> str:
-        """Return text to prepend to the next user message. Override in subclasses."""
         obs = self._pending_observation
         self._pending_observation = ""
         return obs
@@ -401,11 +427,15 @@ class FaraQwen3Agent(Agent):
         )
 
         system_message = []
+        full_text = ""
         for msg in system_prompt_info["conversation"]:
             tmp_content = ""
             for content in msg["content"]:
                 tmp_content += content["text"]
             system_message.append(SystemMessage(content=tmp_content))
+            full_text += tmp_content
+
+        self._allowed_actions = extract_allowed_actions(full_text)
 
         return system_message, scaled_screenshot
 
@@ -464,6 +494,16 @@ class FaraQwen3Agent(Agent):
             [tgt_x, tgt_y], im_w, im_h, og_im_w, og_im_h
         )
 
+    def _proc(self, coordinate):
+        """Shorthand for proc_coords with standard display/viewport args."""
+        return self.proc_coords(
+            coordinate,
+            self.DISPLAY_SIZE,
+            self.DISPLAY_SIZE,
+            self.config.viewport_width,
+            self.config.viewport_height,
+        )
+
     @retry(
         retry=retry_if_not_exception_type(openai.BadRequestError),
         stop=stop_after_attempt(5),
@@ -479,9 +519,8 @@ class FaraQwen3Agent(Agent):
         """Make a model call using the client."""
         if self._client is None:
             raise ValueError(
-                "No client configured for FaraAgent. Call initialize() first."
+                "No client configured for Fara15Agent. Call initialize() first."
             )
-
         result = await self._client.create(
             messages=history,
             extra_create_args=extra_create_args or {},
@@ -491,8 +530,7 @@ class FaraQwen3Agent(Agent):
     def remove_screenshot_from_message(self, msg: LLMMessage) -> LLMMessage | None:
         """Remove the screenshot from the message content."""
         if isinstance(msg.content, list):
-            new_content = [c for c in msg.content if not isinstance(c, ImageObj)]
-            msg.content = new_content
+            msg.content = [c for c in msg.content if not isinstance(c, ImageObj)]
             return msg
         elif isinstance(msg.content, ImageObj):
             return None
@@ -501,7 +539,8 @@ class FaraQwen3Agent(Agent):
     def maybe_remove_old_screenshots(
         self, history: List[LLMMessage], includes_current: bool = False
     ) -> List[LLMMessage]:
-        """Remove old screenshots from the chat history."""
+        """Remove old screenshots from the chat history, keeping the most recent
+        ``max_n_images``. Original task and user-response messages keep their text."""
         if self.config.max_n_images <= 0:
             return history
 
@@ -569,8 +608,7 @@ class FaraQwen3Agent(Agent):
 
     def _fit_images_to_budget(self, history: List[LLMMessage]) -> List[LLMMessage]:
         """Drop oldest screenshots (keeping the most recent) until the estimated
-        prompt is within ``image_budget_token_cap``. Returns a new list; the
-        original messages in ``chat_history`` are left unchanged."""
+        prompt is within ``image_budget_token_cap``. Returns a new list."""
         cap = self.config.image_budget_token_cap
         if cap <= 0 or self._estimate_prompt_tokens(history) <= cap:
             return history
@@ -642,15 +680,29 @@ class FaraQwen3Agent(Agent):
     async def _execute_action(
         self, env, function_call: list[FunctionCall]
     ) -> tuple[bool, str]:
-        """Execute an action on the environment."""
+        """Execute an action. Only actions in the current schema are allowed."""
         name = function_call[0].name
         args = function_call[0].arguments
-        action_description = ""
+        action_type = args.get("action", "")
 
+        if action_type not in self._allowed_actions:
+            if self.config.terminate_on_parse_error:
+                self.logger.warning(
+                    "terminate_on_parse_error=true: invalid action %r — "
+                    "ending trajectory with thoughts as final answer",
+                    action_type,
+                )
+                return True, args.get("thoughts", "") or args.get("answer", "")
+            raise ValueError(
+                f"Action '{action_type}' is not allowed in mode "
+                f"'{self.config.computer_use_mode}'. Allowed: {sorted(self._allowed_actions)}"
+            )
+
+        url = (await env.get_page_context()).url
         self.logger.debug(
             WebSurferEvent(
-                source="FaraAgent",
-                url=(await env.get_page_context()).url,
+                source="Fara15Agent",
+                url=url,
                 action=name,
                 arguments=args,
                 message=f"{name}( {json.dumps(args)} )",
@@ -658,106 +710,135 @@ class FaraQwen3Agent(Agent):
         )
 
         if "coordinate" in args:
-            args["coordinate"] = self.proc_coords(
-                args["coordinate"],
-                self.DISPLAY_SIZE,
-                self.DISPLAY_SIZE,
-                self.config.viewport_width,
-                self.config.viewport_height,
+            args["coordinate"] = self._proc(args["coordinate"])
+
+        is_stop_action, action_description = await self._dispatch_action(
+            env, action_type, args
+        )
+
+        if action_type in self._TEXT_OBSERVATION_ACTIONS:
+            self._pending_observation = format_text_observation(
+                action_type,
+                action_description,
+                self.config.max_observation_chars,
             )
-
-        is_stop_action = False
-        action_type = args["action"]
-
-        if action_type == "visit_url":
-            url = str(args["url"])
-            action_description = f"I typed '{url}' into the browser address bar."
-            if url.startswith(("https://", "http://", "file://", "about:")):
-                await env.goto(url)
-            elif " " in url:
-                await env.goto(
-                    f"https://www.bing.com/search?q={quote_plus(url)}&FORM=QBLH"
-                )
-            else:
-                await env.goto("https://" + url)
-
-        elif action_type == "history_back":
-            action_description = "I clicked the browser back button."
-            await env.back()
-
-        elif action_type == "web_search":
-            query = args.get("query")
-            action_description = f"I typed '{query}' into the browser search bar."
-            encoded_query = quote_plus(query)
-            await env.goto(f"https://www.bing.com/search?q={encoded_query}&FORM=QBLH")
-
-        elif action_type == "scroll":
-            pixels = int(args.get("pixels", 0))
-            if pixels > 0:
-                action_description = "I scrolled up one page in the browser."
-                await env.scroll_up()
-            elif pixels < 0:
-                action_description = "I scrolled down one page in the browser."
-                await env.scroll_down()
-
-        elif action_type in ("keypress", "key"):
-            keys = args.get("keys", [])
-            action_description = f"I pressed the following keys: {keys}"
-            await env.keypress(keys)
-
-        elif action_type in ("hover", "mouse_move"):
-            if "coordinate" in args:
-                tgt_x, tgt_y = args["coordinate"]
-                await env.hover(tgt_x, tgt_y)
-
-        elif action_type in ("sleep", "wait"):
-            duration = args.get("duration", args.get("time", 3.0))
-            action_description = (
-                "I am waiting a short period of time before taking further action."
-            )
-            await env.wait(duration)
-
-        elif action_type in ("click", "left_click"):
-            if "coordinate" in args:
-                tgt_x, tgt_y = args["coordinate"]
-                action_description = f"I clicked at coordinates ({tgt_x}, {tgt_y})."
-                await env.click(tgt_x, tgt_y)
-
-        elif action_type in ("input_text", "type"):
-            text_value = args.get("text", args.get("text_value"))
-            if text_value is None:
-                raise ValueError(
-                    "input_text/type action requires 'text' or 'text_value' argument"
-                )
-            text_value = str(text_value)
-            action_description = f"I typed '{text_value}'."
-            press_enter = args.get("press_enter", True)
-            delete_existing = args.get("delete_existing_text", False)
-
-            if "coordinate" in args:
-                tgt_x, tgt_y = args["coordinate"]
-                await env.type_text(
-                    tgt_x,
-                    tgt_y,
-                    text_value,
-                    press_enter=press_enter,
-                    clear_first=delete_existing,
-                )
-
-        elif action_type == "pause_and_memorize_fact":
-            fact = str(args.get("fact"))
-            self._state.facts.append(fact)
-            action_description = f"I memorized the following fact: {fact}"
-
-        elif action_type in ("stop", "terminate"):
-            action_description = args.get("thoughts", "Task terminated")
-            is_stop_action = True
-
-        else:
-            raise ValueError(f"Unknown action: {action_type}")
 
         if not is_stop_action:
-            await env.wait_for_load()
+            if hasattr(env, "wait_for_load"):
+                await env.wait_for_load()
 
         self._state.num_actions += 1
         return is_stop_action, action_description
+
+    async def _dispatch_action(
+        self, env, action_type: str, args: dict
+    ) -> tuple[bool, str]:
+        """Dispatch an action using the environment's canonical methods."""
+        if action_type == "left_click":
+            tgt_x, tgt_y = args["coordinate"]
+            await env.left_click(tgt_x, tgt_y)
+            return False, f"I clicked at coordinates ({tgt_x}, {tgt_y})."
+
+        elif action_type == "key":
+            keys = args.get("keys", [])
+            await env.key(keys)
+            return False, f"I pressed the following keys: {keys}"
+
+        elif action_type == "mouse_move":
+            tgt_x, tgt_y = args["coordinate"]
+            await env.mouse_move(tgt_x, tgt_y)
+            return False, f"I moved the cursor to ({tgt_x}, {tgt_y})."
+
+        elif action_type == "type":
+            text = str(args.get("text", args.get("text_value", "")))
+            await env.type(text)
+            return False, f"I typed '{text}'."
+
+        elif action_type == "scroll":
+            pixels = int(args.get("pixels", 0))
+            pixels = int(pixels * self.config.viewport_height / self.DISPLAY_SIZE)
+            await env.scroll(pixels)
+            direction = "up" if pixels > 0 else "down"
+            return False, f"I scrolled {direction}."
+
+        elif action_type == "double_click":
+            tgt_x, tgt_y = args["coordinate"]
+            await env.double_click(tgt_x, tgt_y)
+            return False, f"I double-clicked at coordinates ({tgt_x}, {tgt_y})."
+
+        elif action_type == "right_click":
+            tgt_x, tgt_y = args["coordinate"]
+            await env.right_click(tgt_x, tgt_y)
+            return False, f"I right-clicked at coordinates ({tgt_x}, {tgt_y})."
+
+        elif action_type == "triple_click":
+            tgt_x, tgt_y = args["coordinate"]
+            await env.triple_click(tgt_x, tgt_y)
+            return False, f"I triple-clicked at coordinates ({tgt_x}, {tgt_y})."
+
+        elif action_type == "left_click_drag":
+            tgt_x, tgt_y = args["coordinate"]
+            await env.left_click_drag(tgt_x, tgt_y)
+            return False, f"I dragged to ({tgt_x}, {tgt_y})."
+
+        elif action_type == "hscroll":
+            pixels = int(args.get("pixels", 0))
+            pixels = int(pixels * self.config.viewport_width / self.DISPLAY_SIZE)
+            await env.hscroll(pixels)
+            return False, f"I scrolled horizontally by {pixels} pixels."
+
+        elif action_type == "visit_url":
+            url = args.get("url", "")
+            if url.startswith(("https://", "http://", "file://", "about:")):
+                target = url
+            elif " " in url:
+                target = f"https://www.bing.com/search?q={quote_plus(url)}&FORM=QBLH"
+            else:
+                target = "https://" + url
+            try:
+                await env.goto_url(target)
+            except Exception as e:
+                msg = f"visit_url to {url} failed: {type(e).__name__}: {e}"
+                self._pending_observation = msg
+                return False, f"I tried to navigate to {url} but it failed: {e}"
+            return False, f"I navigated to {url}."
+
+        elif action_type == "history_back":
+            await env.go_back()
+            return False, "I clicked the browser back button."
+
+        elif action_type == "web_search":
+            query = args.get("query", "")
+            await env.goto_url(
+                f"https://www.bing.com/search?q={quote_plus(query)}&FORM=QBLH"
+            )
+            return False, f"I searched for '{query}'."
+
+        elif action_type == "read_page_answer_question":
+            question = str(args.get("question", ""))
+            markdown = await env.get_page_markdown()
+            answer = await extract_from_page(markdown, question, self._client)
+            return False, f"I read the page to answer: {question}\nAnswer: {answer}"
+
+        elif action_type == "ask_user_question":
+            question = str(args.get("question", ""))
+            return True, f"I asked the user: {question}"
+
+        elif action_type == "wait":
+            duration = args.get("time", args.get("duration", 3.0))
+            await env.wait(duration)
+            return False, f"I waited {duration}s."
+
+        elif action_type == "pause_and_memorize_fact":
+            fact = str(args.get("fact", ""))
+            self._state.facts.append(fact)
+            return False, f"I memorized the following fact: {fact}"
+
+        elif action_type == "terminate":
+            answer = args.get("answer")
+            if answer is None:
+                raise ValueError("terminate action requires 'answer' argument")
+            return True, answer
+
+        else:
+            raise ValueError(f"Unknown action: {action_type}")
