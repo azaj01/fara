@@ -11,10 +11,7 @@ from abc import abstractmethod
 from enum import StrEnum
 from typing import NamedTuple
 
-from pydantic import model_validator
-
 from .base import Environment, EnvironmentConfig
-from .screen_resolutions import sample_random_screen_resolution
 
 
 class OSType(StrEnum):
@@ -37,15 +34,6 @@ class ComputerEnvironmentConfig(EnvironmentConfig):
 
     viewport_width: int = 1920
     viewport_height: int = 1080
-    randomize_screen_res: bool = False
-
-    @model_validator(mode="after")
-    def _apply_randomize_screen_res(self) -> "ComputerEnvironmentConfig":
-        if self.randomize_screen_res:
-            w, h = sample_random_screen_resolution()
-            self.viewport_width = w
-            self.viewport_height = h
-        return self
 
 
 class ComputerEnvironment(Environment):
