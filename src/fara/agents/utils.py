@@ -133,3 +133,14 @@ def build_screen_text(
     if context_summary:
         text = f"{text}\n\n{context_summary}"
     return text
+
+
+def strip_url_query(url: str) -> str:
+    return url.split("?", 1)[0]
+
+
+def get_trimmed_url(url: str, max_len: int) -> str:
+    trimmed_url = strip_url_query(url)
+    if len(trimmed_url) > max_len:
+        trimmed_url = trimmed_url[:max_len] + " ..."
+    return trimmed_url

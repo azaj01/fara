@@ -54,9 +54,8 @@ from ...core.data_point import (
 from ..captcha import wait_for_captcha
 from ..coord_spaces import FARA_DISPLAY_SIZE
 from ..computer_agent.utils import extract_from_page
-from ..utils import format_text_observation
+from ..utils import format_text_observation, get_trimmed_url
 from .fara_types import WebSurferEvent
-from .utils import get_trimmed_url
 
 
 def extract_allowed_actions(system_prompt_text: str) -> frozenset[str]:
@@ -114,7 +113,6 @@ class Fara15AgentState:
 
     chat_history: list[LLMMessage] = field(default_factory=list)
     facts: list[str] = field(default_factory=list)
-    num_actions: int = 0
     current_step: int = 0
     mlm_width: int = 0
     mlm_height: int = 0
@@ -727,7 +725,6 @@ class Fara15Agent(Agent):
             if hasattr(env, "wait_for_load"):
                 await env.wait_for_load()
 
-        self._state.num_actions += 1
         return is_stop_action, action_description
 
     async def _dispatch_action(
