@@ -32,6 +32,9 @@ dependencies = [
     "pyyaml",
     "jsonschema",
     "browserbase",
+    "pydantic",
+    "markitdown",
+    "tiktoken",
 ]
 
 
@@ -43,7 +46,11 @@ Repository = "https://github.com/microsoft/fara"
 Issues = "https://github.com/microsoft/fara/issues"
 
 [project.optional-dependencies]
-vllm = ["vllm>=0.10.0"]
+# vllm==0.19.1 + transformers>=5.2.0 is the tested serving stack for the
+# Qwen3.5-based Fara-1.5 models. nvidia-cutlass-dsl is capped below 4.6
+# because 4.6.0.dev0 removed the `cute.core.ThrMma` alias that quack (a
+# transitive vLLM dep) uses, crashing vLLM at startup.
+vllm = ["vllm==0.19.1", "transformers>=5.2.0", "nvidia-cutlass-dsl==4.5.2"]
 lmstudio = ["lmstudio"]
 ollama = ["ollama"]
 
@@ -80,6 +87,7 @@ include = [
   "src/fara/**/*.py",
   "src/fara/**/*.yaml",
   "src/fara/**/*.json",
+  "src/fara/**/*.js",
 ]
 exclude = [
   "**/__pycache__",

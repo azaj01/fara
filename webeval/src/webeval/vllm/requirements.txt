@@ -1,0 +1,7 @@
+uvicorn
+fastapi
+vllm==0.19.1
+transformers>=5.2.0
+# 4.6.0.dev0 removed the `cute.core.ThrMma` alias that quack (a transitive
+# vLLM dep) uses, crashing vLLM at startup. Unpin once resolved upstream.
+nvidia-cutlass-dsl==4.5.2

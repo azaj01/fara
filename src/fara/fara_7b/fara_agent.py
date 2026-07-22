@@ -29,12 +29,6 @@ from .fara_types import (
 from .utils import get_trimmed_url
 
 
-# Canonical fara-1.0 action space mapping {action_name: set(arg_names)}.
-# Source of truth: ``FaraComputerUseTool.parameters`` in ``_prompts.py``.
-# Kept here so downstream callers (the rubric verifier, evaluation
-# scripts, training code, etc.) have a single place to import from
-# instead of duplicating the schema. Update both this dict AND the tool
-# parameter schema together if the action space changes.
 FARA_ACTION_DEFINITIONS: Dict[str, set] = {
     "key": {"keys"},
     "type": {"text", "coordinate", "press_enter", "delete_existing_text"},
@@ -111,7 +105,6 @@ class FaraAgent:
         self._download_handler = _download_handler
         self.did_initialize = False
 
-        # OpenAI client will be initialized in initialize()
         self._openai_client: AsyncOpenAI | None = None
         self._chat_history: List[LLMMessage] = []
 
@@ -121,16 +114,13 @@ class FaraAgent:
         self._last_download = None
         self._prior_metadata_hash = None
 
-        # Initialize OpenAI client
         self._openai_client = AsyncOpenAI(
             api_key=self.client_config.get("api_key"),
             base_url=self.client_config.get("base_url"),
         )
 
-        # Set up download handler
         self.browser_manager.set_download_handler(self._download_handler)
 
-        # Initialize browser
         await self.browser_manager.init(self.start_page)
         self.did_initialize = True
 
@@ -160,19 +150,18 @@ class FaraAgent:
 
     async def wait_for_captcha_with_timeout(
         self, timeout_seconds=300
-    ):  # 5 minutes default
+    ):
         """Wait for captcha to be solved with timeout"""
         try:
             await asyncio.wait_for(
                 self.browser_manager.wait_for_captcha_resolution(),
                 timeout=timeout_seconds,
             )
-            return True  # Captcha solved in time
+            return True
         except asyncio.TimeoutError:
             self.logger.warning(f"Captcha timeout after {timeout_seconds} seconds!")
-            # Force resume execution
             self.browser_manager._captcha_event.set()
-            return False  # Captcha timed out
+            return False
 
     @retry(
         stop=stop_after_attempt(5),
@@ -240,13 +229,11 @@ class FaraAgent:
             )
 
             if i == 0 and n_images >= max_n_images:
-                # First message is always the task so we keep it and remove the screenshot if necessary
                 msg = self.remove_screenshot_from_message(msg)
                 if msg is None:
                     continue
 
             if isinstance(msg.content, list):
-                # Check if the message contains an image. Assumes 1 image per message.
                 has_image = False
                 for c in msg.content:
                     if isinstance(c, ImageObj):
@@ -256,7 +243,6 @@ class FaraAgent:
                     if n_images < max_n_images:
                         new_history.append(msg)
                     elif is_original_user_message:
-                        # Original user message but over limit: keep text, remove image
                         msg = self.remove_screenshot_from_message(msg)
                         if msg is not None:
                             new_history.append(msg)
@@ -351,13 +337,10 @@ class FaraAgent:
 
     async def run(self, user_message: str) -> Tuple:
         """Run the agent with a user message."""
-        # Initialize if not already done
         await self.initialize()
 
-        # Ensure page is ready after initialization
         assert self._page is not None, "Page should be initialized"
 
-        # Get initial screenshot and add user message with image to chat history
         scaled_screenshot = await self._get_scaled_screenshot()
 
         if self.save_screenshots:
@@ -426,7 +409,6 @@ class FaraAgent:
 
         screenshot_for_system = first_screenshot
         if not is_first_round:
-            # Get screenshot and add new user message for subsequent rounds
             scaled_screenshot = await self._get_scaled_screenshot()
             screenshot_for_system = scaled_screenshot
 
@@ -441,7 +423,6 @@ class FaraAgent:
             self._chat_history.append(curr_message)
             history.append(curr_message)
 
-        # Generate system message using the screenshot
         system_message, _ = self._get_system_message(screenshot_for_system)
         history = system_message + history
         response = await self._make_model_call(
@@ -487,13 +468,11 @@ class FaraAgent:
         if args["action"] == "visit_url":
             url = str(args["url"])
             action_description = f"I typed '{url}' into the browser address bar."
-            # Check if the argument starts with a known protocol
             if url.startswith(("https://", "http://", "file://", "about:")):
                 (
                     reset_prior_metadata,
                     reset_last_download,
                 ) = await self._playwright_controller.visit_page(self._page, url)
-            # If the argument contains a space, treat it as a search query
             elif " " in url:
                 (
                     reset_prior_metadata,
@@ -502,7 +481,6 @@ class FaraAgent:
                     self._page,
                     f"https://www.bing.com/search?q={quote_plus(url)}&FORM=QBLH",
                 )
-            # Otherwise, prefix with https://
             else:
                 (
                     reset_prior_metadata,
@@ -601,7 +579,6 @@ class FaraAgent:
         await self._playwright_controller.wait_for_load_state(self._page)
         await self._playwright_controller.sleep(self._page, 3)
 
-        # Get new screenshot after action
         self._num_actions += 1
         if self.save_screenshots:
             new_screenshot = await self._playwright_controller.get_screenshot(

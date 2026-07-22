@@ -21,7 +21,7 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 100)
 pd.set_option('display.width', None)
 
-from fara.vllm.az_vllm import AzVllm
+from webeval.vllm.az_vllm import AzVllm
 from webeval.core import reduce_eval_results, run_eval_multiple_examples, run_eval_multiple_examples_with_progress
 from webeval.eval_result import EvalResult, Stage
 from webeval.post_eval_analysis import aggregate_post_eval_errors, count_web_surfer_log_entries

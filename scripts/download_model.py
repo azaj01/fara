@@ -59,7 +59,9 @@ def main():
         )
         print(f"\n✓ Successfully downloaded model to {output_dir}")
         print(f"\nYou can now use this model with:")
-        print(f"  python az_vllm.py --model_url {output_dir} --device_id 0,1")
+        print(
+            f"  python -m webeval.vllm.az_vllm --model_url {output_dir} --device_id 0,1"
+        )
     except Exception as e:
         print(f"\n✗ Error downloading model: {e}")
         print("\nIf you're getting authentication errors, you may need to:")

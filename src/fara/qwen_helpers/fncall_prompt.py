@@ -10,12 +10,14 @@ from .schema import ASSISTANT, FUNCTION, SYSTEM, USER, ContentItem, Message
 
 
 class NousFnCallPrompt:
-    def __init__(self, template_name: str = "default"):
+    def __init__(self, template_name: str = "default", template: str = None):
         """Initialize NousFnCallPrompt with a specific template.
 
         Args:
             template_name: Name of the template to use. Options:
                           "default", "qwen", "with_ci"
+            template: Pre-built template string. If provided, overrides
+                     template_name lookup. Must contain {tool_descs} placeholder.
         """
         self.template_name = template_name
         self.template_map = {
@@ -23,8 +25,9 @@ class NousFnCallPrompt:
             "qwen": FN_CALL_TEMPLATE_QWEN,
             "with_ci": FN_CALL_TEMPLATE_WITH_CI,
         }
+        self._custom_template = template
 
-        if template_name not in self.template_map:
+        if template is None and template_name not in self.template_map:
             raise ValueError(
                 f"Unknown template_name: {template_name}. "
                 f"Available options: {list(self.template_map.keys())}"
@@ -38,14 +41,13 @@ class NousFnCallPrompt:
         parallel_function_calls: bool = True,
         function_choice: Union[Literal["auto"], str] = "auto",
     ) -> List[Message]:
-        del lang  # ignored
-        del parallel_function_calls  # ignored
+        del lang
+        del parallel_function_calls
         if function_choice != "auto":
             raise NotImplementedError
 
         ori_messages = messages
 
-        # Change function_call responses to plaintext responses:
         messages = []
         for msg in copy.deepcopy(ori_messages):
             role, content, reasoning_content = (
@@ -81,7 +83,6 @@ class NousFnCallPrompt:
                     messages[-1].content.append(ContentItem(text="\n"))
                     messages[-1].content.extend(content)
                 else:
-                    # TODO: Assuming there will only be one continuous reasoning_content here
                     messages.append(
                         Message(
                             role=role,
@@ -110,14 +111,15 @@ class NousFnCallPrompt:
         ]
         tool_descs = "\n".join([json.dumps(f, ensure_ascii=False) for f in tool_descs])
 
-        # Select template based on configuration
         if SPECIAL_CODE_MODE and any([CODE_TOOL_PATTERN in x for x in tool_names]):
             selected_template = FN_CALL_TEMPLATE_WITH_CI
+        elif self._custom_template is not None:
+            selected_template = self._custom_template
         else:
             selected_template = self.template_map[self.template_name]
 
         tool_system = selected_template.format(tool_descs=tool_descs)
-        if messages[0].role == SYSTEM:
+        if len(messages) > 0 and messages[0].role == SYSTEM:
             messages[0].content.append(ContentItem(text="\n\n" + tool_system))
         else:
             messages = [
@@ -182,8 +184,6 @@ Here is the code.
 </tool_call>"""
 
 
-# Mainly for removing incomplete special tokens when streaming the output
-# This assumes that '<tool_call>\n{"name": "' is the special token for the NousFnCallPrompt
 def remove_incomplete_special_tokens(text: str) -> str:
     if text in '<tool_call>\n{"name": "':
         text = ""
