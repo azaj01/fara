@@ -4,12 +4,15 @@
 
 
 
-<img src="figures/fara_hero_barchart.png" alt="Fara-1.5 Performance" width="600"/>
+<img src="figures/fara_hero_barchart.png" alt="Fara1.5 Performance" width="600"/>
 
-[![Microsoft](https://img.shields.io/badge/Microsoft-Project-0078D4?logo=microsoft)](https://aka.ms/fara1.5)
+[![Blog](https://img.shields.io/badge/Microsoft-Blog%20Post-0078D4?logo=microsoft)](https://aka.ms/fara1.5)
 [![Paper](https://img.shields.io/badge/Paper-2606.20785-red)](https://arxiv.org/abs/2606.20785)
-[![Blog](https://img.shields.io/badge/MSR-Blog%20Post-0078D4)](https://www.microsoft.com/en-us/research/articles/fara1-5-computer-use-agent/)
-[![Foundry](https://img.shields.io/badge/Azure-Foundry-0089D6)](https://ai.azure.com/catalog/models/Fara1.5-9B)
+[![Foundry](https://img.shields.io/badge/Foundry-Fara1.5--4B-0089D6)](https://aka.ms/fara1.5-4B-foundry)
+[![Foundry](https://img.shields.io/badge/Foundry-Fara1.5--9B-0089D6)](https://aka.ms/fara1.5-9B-foundry)
+[![Foundry](https://img.shields.io/badge/Foundry-Fara1.5--27B-0089D6)](https://aka.ms/fara1.5-27B-foundry)
+
+[![Model](https://img.shields.io/badge/🤗-Model%20Weights-orange)](https://aka.ms/fara1.5-hf)
 [![Dataset](https://img.shields.io/badge/🤗-WebTailBench%20Dataset-orange)](https://huggingface.co/datasets/microsoft/WebTailBench)
 [![Dataset](https://img.shields.io/badge/🤗-CUAVerifierBench-orange)](https://huggingface.co/datasets/microsoft/CUAVerifierBench)
 
@@ -19,9 +22,10 @@
 
 ## Updates
 
-* **2026-07-17** — **Fara-1.5 released!** A family of native computer use
+* **2026-07-22** — **Fara1.5 released!** A family of native computer use
   agents at three scales (Fara1.5-4B, Fara1.5-9B, Fara1.5-27B) built on
-  Qwen3.5 and trained on data from the **FaraGen1.5** pipeline. Fara1.5-9B
+  Qwen3.5 and trained on data from the **FaraGen1.5** pipeline. **All three models have weights available on [Hugging Face](https://aka.ms/fara1.5-hf) and can be hosted through Microsoft Foundry ([Fara1.5-4B](https://aka.ms/fara1.5-4B-foundry), [Fara1.5-9B](https://aka.ms/fara1.5-9B-foundry), [Fara1.5-27B](https://aka.ms/fara1.5-27B-foundry))**.
+  Fara1.5-9B
   reaches 63.4% on Online-Mind2Web and 86.6% on WebVoyager, a new state of
   the art for its size class; Fara1.5-27B achieves 72.3% on Online-Mind2Web,
   outperforming much larger proprietary systems. Read the
@@ -42,21 +46,21 @@
   `internal` (154 trajectories from a heldout aurora-v2 task suite) —
   with per-judge UV-blind / UV-informed labels, Universal Verifier
   outputs, and legacy verifier outputs side-by-side. The build script
-  that produced the dataset lives alongside the data on HuggingFace.
+  that produced the dataset lives alongside the data on Hugging Face.
 
 ---
 
 ## Overview
 
-**Fara-1.5** is a family of native Computer Use Agents (CUAs) at three scales — **Fara1.5-4B**, **Fara1.5-9B**, and **Fara1.5-27B** — built on Qwen3.5 and trained with supervised finetuning on data from **FaraGen1.5**, our scalable data pipeline of environments, solvers, and verifiers. Each model sets a new state of the art for its size class on browser-use benchmarks, and Fara1.5-27B outperforms much larger proprietary systems such as OpenAI Operator and Gemini 2.5 Computer Use on Online-Mind2Web.
+**Fara1.5** is a family of native Computer Use Agents (CUAs) at three scales — **Fara1.5-4B**, **Fara1.5-9B**, and **Fara1.5-27B** — built on Qwen3.5 and trained with supervised finetuning on data from **FaraGen1.5**, our scalable data pipeline of environments, solvers, and verifiers. Each model sets a new state of the art for its size class on browser-use benchmarks, and Fara1.5-27B outperforms much larger proprietary systems such as OpenAI Operator and Gemini 2.5 Computer Use on Online-Mind2Web.
 
-Fara-1.5 models operate through an observe-think-act loop: given a screenshot of the browser and the conversation history, the model reasons about the state of the task and outputs an action — mouse and keyboard inputs on directly predicted coordinates, web searches, or context management operations — with no accessibility trees or separate parsing models.
+Fara1.5 models operate through an observe-think-act loop: given a screenshot of the browser and the conversation history, the model reasons about the state of the task and outputs an action — mouse and keyboard inputs on directly predicted coordinates, web searches, or context management operations — with no accessibility trees or separate parsing models.
 
 <div align="center">
-<img src="figures/fig2_fara_agentic_loop.png" alt="Fara-1.5 Observe-Think-Act Loop" width="800"/>
+<img src="figures/fig2_fara_agentic_loop.png" alt="Fara1.5 Observe-Think-Act Loop" width="800"/>
 </div>
 
-All three models are available on Azure Foundry: [Fara1.5-4B](https://ai.azure.com/catalog/models/Fara1.5-4B), [Fara1.5-9B](https://ai.azure.com/catalog/models/Fara1.5-9B), and [Fara1.5-27B](https://ai.azure.com/catalog/models/Fara1.5-27B).
+All three models are available on Microsoft Foundry: [Fara1.5-4B](https://ai.azure.com/catalog/models/Fara1.5-4B), [Fara1.5-9B](https://ai.azure.com/catalog/models/Fara1.5-9B), and [Fara1.5-27B](https://ai.azure.com/catalog/models/Fara1.5-27B).
 
 Try Fara1.5-9B as follows (see [Installation](#installation) for detailed instructions):
 
@@ -72,7 +76,7 @@ pip install -e .
 playwright install
 ```
 
-Deploy Fara1.5-9B from the [Azure Foundry catalog](https://ai.azure.com/catalog/models/Fara1.5-9B) and put your endpoint in a config JSON (e.g. `azure_foundry_config.json`):
+Deploy Fara1.5-9B from the [Microsoft Foundry catalog](https://ai.azure.com/catalog/models/Fara1.5-9B) and put your endpoint in a config JSON (e.g. `azure_foundry_config.json`):
 
 ```json
 {
@@ -122,13 +126,13 @@ Note: If you're using Windows, we highly recommend using WSL2 (Windows Subsystem
 </tr>
 </table>
 
-### What Makes Fara-1.5 Unique
+### What Makes Fara1.5 Unique
 
-Unlike traditional chat models that generate text-based responses, Fara-1.5 leverages computer interfaces—mouse and keyboard—to perform multi-step tasks on behalf of users. The models:
+Unlike traditional chat models that generate text-based responses, Fara1.5 leverages computer interfaces—mouse and keyboard—to perform multi-step tasks on behalf of users. The models:
 
 - **Operate visually** by perceiving webpages and taking actions like scrolling, typing, and clicking on directly predicted coordinates without accessibility trees or separate parsing models
 - **Enable efficient deployment** thanks to their compact sizes (4B/9B/27B), resulting in reduced latency and improved privacy
-- **Interact with users**: trained with a user simulator on multi-turn rollouts, Fara-1.5 can ask for missing information, flag ambiguous tasks, and pause for approval before irreversible actions
+- **Interact with users**: trained with a user simulator on multi-turn rollouts, Fara1.5 can ask for missing information, flag ambiguous tasks, and pause for approval before irreversible actions
 - **Remain a research preview**: safety measures include refusing harmful tasks based on responsible AI policies, prompting users at critical interaction points, and auditable action logging through Magentic-UI's sandboxed browser environment
 
 ### FaraGen1.5: Scalable Learning Environments
@@ -143,7 +147,7 @@ The resulting training mix contains roughly 2M samples: ~60% web trajectories, 1
 
 ### Key Capabilities
 
-Fara-1.5 can automate everyday web tasks including:
+Fara1.5 can automate everyday web tasks including:
 - Searching for information and summarizing results
 - Filling out forms and managing accounts
 - Booking travel, movie tickets, and restaurant reservations
@@ -152,7 +156,7 @@ Fara-1.5 can automate everyday web tasks including:
 
 ### Performance Highlights
 
-Each Fara-1.5 model sets a new state of the art for its size class. Fara1.5-9B improves over Fara-7B by +29.3 points on Online-Mind2Web, +13.1 points on WebVoyager, and +8.2 points on WebTailBench outcome success:
+Each Fara1.5 model sets a new state of the art for its size class. Fara1.5-9B improves over Fara-7B by +29.3 points on Online-Mind2Web, +13.1 points on WebVoyager, and +8.2 points on WebTailBench outcome success:
 
 | Model | Size | WebVoyager | Online-Mind2Web | WebTailBench v1.5 (Process) | WebTailBench v1.5 (Outcome) |
 |-------|------|------------|-----------------|-----------------------------|-----------------------------|
@@ -169,23 +173,23 @@ Each Fara-1.5 model sets a new state of the art for its size class. Fara1.5-9B i
 | MolmoWeb† | 8B | 78.2 | 35.3 | - | - |
 | Holo2† | 8B | 80.2 | - | - | - |
 | GUI-Owl-1.5† | 8B | 78.1 | 48.6 | - | - |
-| **Fara-1.5 family (ours)** | | | | | |
+| **Fara1.5 family (ours)** | | | | | |
 | **Fara1.5-4B** | 4B | 80.8 | 57.3 | 60.3 | 27.4 |
 | **Fara1.5-9B** | 9B | 86.6 | 63.4 | 64.5 | 32.3 |
 | **Fara1.5-27B** | 27B | **89.3** | **72.3** | 72.9 | 40.2 |
 | FaraGen1.5 Solver (GPT-5.4) | - | 93.4 | 83.4 | 79.6 | 57.4 |
 
-*Table: Task success rate (%) on WebVoyager, Online-Mind2Web, and WebTailBench v1.5. For WebTailBench v1.5 we report both Process Success (correct intermediate steps) and Outcome Success (final task state correct). All Fara-1.5 and Fara-7B numbers are averaged over three independent runs. The GPT-5.4-based FaraGen1.5 solver is an upper-bound reference for the SFT-based distillation. † denotes numbers sourced from the model's official release or leaderboard rather than re-run by us.*
+*Table: Task success rate (%) on WebVoyager, Online-Mind2Web, and WebTailBench v1.5. For WebTailBench v1.5 we report both Process Success (correct intermediate steps) and Outcome Success (final task state correct). All Fara1.5 and Fara-7B numbers are averaged over three independent runs. The GPT-5.4-based FaraGen1.5 solver is an upper-bound reference for the SFT-based distillation. † denotes numbers sourced from the model's official release or leaderboard rather than re-run by us.*
 
 ### WebTailBench: Evaluating Real-World Web Tasks
 
-**[WebTailBench](https://huggingface.co/datasets/microsoft/WebTailBench)** is our evaluation benchmark focusing on 11 real-world task types that are underrepresented or missing in existing benchmarks. The benchmark includes 609 tasks across diverse categories, with the first 8 segments testing single skills or objectives (usually on a single website), and the remaining 3 evaluating more difficult multi-step or cross-site tasks (shopping lists, comparison shopping, and compositional tasks). Tasks and precomputed rubrics are on HuggingFace (use the refreshed `test_v2` split), the **Universal Verifier** (`MMRubricAgent`) is the official judge, and the reproducibility CLI lives in `webeval/scripts/webtailbench.py`.
+**[WebTailBench](https://huggingface.co/datasets/microsoft/WebTailBench)** is our evaluation benchmark focusing on 11 real-world task types that are underrepresented or missing in existing benchmarks. The benchmark includes 609 tasks across diverse categories, with the first 8 segments testing single skills or objectives (usually on a single website), and the remaining 3 evaluating more difficult multi-step or cross-site tasks (shopping lists, comparison shopping, and compositional tasks). Tasks and precomputed rubrics are on Hugging Face (use the refreshed `test_v2` split), the **Universal Verifier** (`MMRubricAgent`) is the official judge, and the reproducibility CLI lives in `webeval/scripts/webtailbench.py`.
 
 ### CUAVerifierBench: Evaluating the Verifiers Themselves
 
 While WebTailBench measures *agents*, **[CUAVerifierBench](https://huggingface.co/datasets/microsoft/CUAVerifierBench)** measures the *judges that score those agents*. Each row pairs a Fara agent trajectory (instruction, screenshots, web_surfer log, final answer) with one human reviewer's verdict, plus the verdicts produced by the **Universal Verifier (`MMRubricAgent`)** and several legacy verifiers — so researchers can compute verifier–human agreement (Cohen's κ, accuracy, F1) on a fixed corpus and iterate on new judge prompts / architectures against a frozen ground-truth set.
 
-The dataset is exposed as two HuggingFace configs joinable on `task_id`:
+The dataset is exposed as two Hugging Face configs joinable on `task_id`:
 
 | Config | Granularity | Contents |
 |---|---|---|
@@ -199,7 +203,7 @@ Two splits ship today:
 | `fara7b_om2w_browserbase` | Fara-7B trajectories on Online-Mind2Web tasks executed via Browserbase | 106 | 215 (≈2 reviewers/task; UV-blind **and** UV-informed stages) |
 | `internal` | Heldout aurora-v2 task suite scored with the same WebSurfer + verifier stack | 154 | 154 (1 reviewer/task; UV-blind only) |
 
-Reviewer identities are anonymized as `Judge1` … `JudgeN` using a single shared map across both splits. The build script that produced the dataset (with full schema + provenance) ships alongside the data on HuggingFace at [`microsoft/CUAVerifierBench`](https://huggingface.co/datasets/microsoft/CUAVerifierBench); see the [dataset README](https://huggingface.co/datasets/microsoft/CUAVerifierBench/blob/main/README.md) for the full column list.
+Reviewer identities are anonymized as `Judge1` … `JudgeN` using a single shared map across both splits. The build script that produced the dataset (with full schema + provenance) ships alongside the data on Hugging Face at [`microsoft/CUAVerifierBench`](https://huggingface.co/datasets/microsoft/CUAVerifierBench); see the [dataset README](https://huggingface.co/datasets/microsoft/CUAVerifierBench/blob/main/README.md) for the full column list.
 
 ```python
 from datasets import load_dataset
@@ -218,7 +222,7 @@ Our evaluation setup leverages:
 2. **Abstract Web Agent Interface** - Allows integration of any model from any source into the evaluation environment
 3. **Fara-Agent Class** - Reference implementation for running the Fara models
 
-> **Note:** Fara-1.5 is a research preview designed to invite hands-on exploration and feedback from the community. We recommend running it in a sandboxed environment, monitoring its execution, and avoiding sensitive data or high-risk domains.
+> **Note:** Fara1.5 is a research preview designed to invite hands-on exploration and feedback from the community. We recommend running it in a sandboxed environment, monitoring its execution, and avoiding sensitive data or high-risk domains.
 
 ---
 
@@ -243,7 +247,7 @@ pip install -e .[vllm]
 playwright install
 ```
 
-Note: If you plan on hosting with Azure Foundry only, you can skip the `[vllm]` and just do `pip install -e .`
+Note: If you plan on hosting with Microsoft Foundry only, you can skip the `[vllm]` and just do `pip install -e .`
 
 
 ### Windows
@@ -264,15 +268,15 @@ python3 -m playwright install
 
 ### Hosting the Model
 
-**Recommended:** The easiest way to get started is using Azure Foundry hosting, which requires no GPU hardware or model downloads. All three Fara-1.5 models ([Fara1.5-4B](https://ai.azure.com/catalog/models/Fara1.5-4B), [Fara1.5-9B](https://ai.azure.com/catalog/models/Fara1.5-9B), and [Fara1.5-27B](https://ai.azure.com/catalog/models/Fara1.5-27B)) are available on Foundry.
+**Recommended:** The easiest way to get started is using Microsoft Foundry hosting, which requires no GPU hardware or model downloads. All three Fara1.5 models are available on Foundry.
 
-#### Azure Foundry Hosting (Recommended)
+#### Microsoft Foundry Hosting
 
-Deploy Fara1.5-9B from the [Azure Foundry catalog](https://ai.azure.com/catalog/models/Fara1.5-9B) without needing to download weights or manage GPU infrastructure.
+Deploy Fara1.5 models from the Microsoft Foundry catalog ([Fara1.5-4B](https://aka.ms/fara1.5-4B-foundry), [Fara1.5-9B](https://aka.ms/fara1.5-9B-foundry), [Fara1.5-27B](https://aka.ms/fara1.5-27B-foundry)) without needing to download weights or manage GPU infrastructure.
 
 **Setup:**
 
-1. Deploy the Fara1.5-9B model on Azure Foundry and obtain your endpoint URL and API key
+1. Deploy the model on Microsoft Foundry and obtain your endpoint URL and API key
 
 Then create a endpoint configuration JSON file (e.g., `azure_foundry_config.json`):
 
@@ -302,13 +306,13 @@ That's it! No GPU or model downloads required.
 
 #### Self-hosting with vLLM
 
-If you have access to GPU resources, you can self-host Fara models with vLLM and point `fara-cli` at the resulting OpenAI-compatible endpoint:
+If you have access to GPU resources, you can download the model weights from [Hugging Face](https://aka.ms/fara1.5-hf), self-host Fara models with vLLM, and point `fara-cli` at the resulting OpenAI-compatible endpoint:
 
 ```bash
 vllm serve <model> --port 5000 --dtype auto
 ```
 
-The previous-generation [Fara-7B](https://huggingface.co/microsoft/Fara-7b) weights remain available on HuggingFace (with [GGUF variants](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF) for LM Studio / Ollama). Pass `--fara-7b` to run the Fara-7B agent instead of Fara-1.5:
+The previous-generation [Fara-7B](https://huggingface.co/microsoft/Fara-7b) weights remain available on Hugging Face (with [GGUF variants](https://huggingface.co/bartowski/microsoft_Fara-7B-GGUF) for LM Studio / Ollama). Pass `--fara-7b` to run the Fara-7B agent instead of Fara1.5:
 
 ```bash
 fara-cli --fara-7b --task "how many pages does wikipedia have" --endpoint_config fara7b_config.json
@@ -322,14 +326,14 @@ Runs save a full trajectory — per-step screenshots and a `data_point.json` (ta
 
 Instructions to reproduce our benchmark results (WebVoyager, Online-Mind2Web, WebTailBench) with the `webeval/` framework — including installation, the per-benchmark CLIs, BrowserBase setup, and result analysis — live in [`docs/eval_reproducibility.md`](docs/eval_reproducibility.md).
 
-> **Note:** the webeval pipeline documented there produced the previous-generation (Fara-7B) numbers and is being updated for the Fara-1.5 evaluation stack.
+> **Note:** the webeval pipeline documented there produced the previous-generation (Fara-7B) numbers and is being updated for the Fara1.5 evaluation stack.
 
 ## Citation
 
-If you use Fara-1.5 in your research, please use the following BibTeX entry.
+If you use Fara1.5 in your research, please use the following BibTeX entry.
 ```bibtex
 @article{fara152026,
-  title={Fara-1.5: Scalable Learning Environments for Computer Use Agents},
+  title={Fara1.5: Scalable Learning Environments for Computer Use Agents},
   author={Awadallah, Ahmed and Gupta, Sahil and Lara, Yash and Lu, Yadong and Mozannar, Hussein and Nambi, Akshay and Nussbaum, Zach and Pandya, Yash and Rajeswaran, Aravind and Rosset, Corby and Taymanov, Alexey and do Valle, Luiz and Vineet, Vibhav and Whitehead, Spencer and Zhao, Andrew},
   journal={arXiv:2606.20785},
   year={2026}
